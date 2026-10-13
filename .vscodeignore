@@ -15,3 +15,8 @@ esbuild.config.js
 .eslintrc.json
 .prettierrc
 CONTRIBUTING.md
+out/**
+extension.js
+vitest.config.ts
+docs/**
+media/icon_backup.png

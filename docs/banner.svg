@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="t d">
+  <title id="t">Antigravity Workflow Kit</title>
+  <desc id="d">Banner: auto-accept, autonomous loop and safety rails for the Antigravity editor</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="0.6" stop-color="#151a3a"/>
+      <stop offset="1" stop-color="#24154a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c5cff"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.04"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <rect width="1280" height="320" fill="url(#grid)"/>
+  <rect x="72" y="92" width="6" height="96" rx="3" fill="url(#accent)"/>
+  <text x="100" y="138" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="54" font-weight="700" fill="#f5f7ff">Antigravity Workflow Kit</text>
+  <text x="102" y="180" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="22" fill="#b9c0e0">Auto-accept, autonomous loops and safety rails for the Antigravity IDE</text>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="600">
+    <rect x="102" y="214" width="160" height="32" rx="16" fill="#7c5cff" fill-opacity="0.18" stroke="#7c5cff" stroke-opacity="0.6"/>
+    <text x="182" y="235" text-anchor="middle" fill="#cfc4ff">VS Code extension</text>
+    <rect x="274" y="214" width="112" height="32" rx="16" fill="#22d3ee" fill-opacity="0.14" stroke="#22d3ee" stroke-opacity="0.6"/>
+    <text x="330" y="235" text-anchor="middle" fill="#bdf3fb">TypeScript</text>
+    <rect x="398" y="214" width="220" height="32" rx="16" fill="#34d399" fill-opacity="0.14" stroke="#34d399" stroke-opacity="0.6"/>
+    <text x="508" y="235" text-anchor="middle" fill="#c4f5df">Chrome DevTools Protocol</text>
+  </g>
+  <!-- motif: accept prompts flowing into a guarded loop -->
+  <g transform="translate(905 52)">
+    <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="600">
+      <rect x="0" y="10" width="170" height="44" rx="10" fill="#1d2347" stroke="#3b4380"/>
+      <circle cx="26" cy="32" r="12" fill="#34d399"/>
+      <path d="M20 32l4 4 8-9" fill="none" stroke="#0b1020" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="48" y="37" fill="#e6e9ff">Accept edit</text>
+      <rect x="0" y="74" width="170" height="44" rx="10" fill="#1d2347" stroke="#3b4380"/>
+      <circle cx="26" cy="96" r="12" fill="#34d399"/>
+      <path d="M20 96l4 4 8-9" fill="none" stroke="#0b1020" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="48" y="101" fill="#e6e9ff">Run command</text>
+      <rect x="0" y="138" width="170" height="44" rx="10" fill="#1d2347" stroke="#5b2a3a"/>
+      <circle cx="26" cy="160" r="12" fill="#f87171"/>
+      <path d="M21 155l10 10M31 155l-10 10" stroke="#0b1020" stroke-width="3" stroke-linecap="round"/>
+      <text x="48" y="165" fill="#fecaca">rm -rf / blocked</text>
+    </g>
+    <path d="M176 32 C 216 32, 216 96, 242 96" fill="none" stroke="#7c5cff" stroke-width="2.5" stroke-dasharray="5 5"/>
+    <path d="M176 96 H 242" fill="none" stroke="#7c5cff" stroke-width="2.5" stroke-dasharray="5 5"/>
+    <circle cx="300" cy="96" r="56" fill="none" stroke="url(#accent)" stroke-width="6" stroke-dasharray="300 52" stroke-linecap="round"/>
+    <path d="M340 50 l14 2 -6 13" fill="none" stroke="#22d3ee" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="300" y="92" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#f5f7ff">loop</text>
+    <text x="300" y="112" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#9aa3cc">circuit breaker</text>
+  </g>
+</svg>

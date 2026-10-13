@@ -26,11 +26,11 @@ export const ModelId = {
     GEMINI_PRO_LOW: 'gemini-3-pro-low',
     GEMINI_FLASH: 'gemini-3-flash',
     // Claude Models
-    CLAUDE_SONNET: 'claude-sonnet-4-5',
-    CLAUDE_SONNET_THINKING: 'claude-sonnet-4-5-thinking',
-    CLAUDE_OPUS_THINKING: 'claude-opus-4-5-thinking',
+    CLAUDE_SONNET: 'claude-sonnet-4.5',
+    CLAUDE_SONNET_THINKING: 'claude-sonnet-4.5-thinking',
+    CLAUDE_OPUS_THINKING: 'claude-opus-4.5-thinking',
     // GPT Models
-    GPT_OSS: 'gpt-oss-120b-medium',
+    GPT_OSS: 'gpt-oss-120b',
 } as const;
 
 // Model display names matching Antigravity's UI exactly

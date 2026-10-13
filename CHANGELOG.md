@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- Model IDs in `src/utils/constants.ts` now match the IDs declared in `package.json` settings (e.g. `claude-opus-4.5-thinking`), so display labels and rate-limit model fallback resolve the configured model.
+- `npm run lint` now has an ESLint configuration; CI workflow now triggers on the `master` branch.
+- `npm run package` uses `docs/MARKETPLACE.md` as the VSIX README; legacy `out/` and root `extension.js` are no longer packaged.
+
+### Added
+- Unit tests against the real `src/core` modules and a manifest consistency test (54 tests total).
+
+---
+
 ## [3.0.2] - 2026-09-24
 
 ### Changed
@@ -26,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Published
 - ✅ Open VSX: https://open-vsx.org/extension/ai-dev-2024/antigravity-workflow-kit
-- ✅ GitHub: https://github.com/ai-dev-2024/antigravity-workflow-kit/releases
+- ✅ GitHub: https://github.com/muhib-karim/antigravity-workflow-kit/releases
 
 ---
 

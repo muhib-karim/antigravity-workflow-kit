@@ -548,4 +548,4 @@ export const ICONS = {
 };
 
 export const KOFI_LINK = 'https://ko-fi.com/ai_dev_2024';
-export const GITHUB_LINK = 'https://github.com/ai-dev-2024/antigravity-workflow-kit';
+export const GITHUB_LINK = 'https://github.com/muhib-karim/antigravity-workflow-kit';

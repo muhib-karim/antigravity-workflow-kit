@@ -6,7 +6,7 @@ Thank you for your interest in contributing!
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/ai-dev-2024/antigravity-workflow-kit.git
+   git clone https://github.com/muhib-karim/antigravity-workflow-kit.git
    cd antigravity-workflow-kit
    ```
 
