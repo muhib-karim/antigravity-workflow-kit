@@ -207,6 +207,12 @@ push and pull request to `master`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Please run `npm run lint && npm run typecheck && npm test` before opening a PR.
 
+## Tech stack
+
+- **Language:** TypeScript
+- **Frameworks and tools:** TypeScript, Vitest, WebSocket (ws), esbuild
+- **CI:** GitHub Actions
+
 ## License
 
 [MIT](LICENSE)
