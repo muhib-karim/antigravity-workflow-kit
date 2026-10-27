@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - Voice Controller
+ * Antigravity Workflow Kit - Voice Controller
  * Voice command integration for hands-free control
  * @module ui/voice-controller
  */
@@ -30,7 +30,7 @@ export class VoiceController {
     private config: VoiceConfig = {
         enabled: false,
         language: 'en-US',
-        wakeWord: 'yoke',
+        wakeWord: 'workflowKit',
         confirmActions: true
     };
     private isListening = false;
@@ -45,48 +45,48 @@ export class VoiceController {
         this.registerCommand({
             patterns: [
                 /(?:start|enable|turn on)\s+(?:auto[- ]?all|automation)/i,
-                /(?:yoke\s+)?auto[- ]?all\s+on/i
+                /(?:autopilot\s+)?auto[- ]?all\s+on/i
             ],
-            action: 'yoke.toggleAutoAll',
+            action: 'workflowKit.toggleAutoAll',
             description: 'Enable Auto-All mode',
             handler: async () => {
-                await vscode.commands.executeCommand('yoke.toggleAutoAll');
+                await vscode.commands.executeCommand('workflowKit.toggleAutoAll');
             }
         });
 
         this.registerCommand({
             patterns: [
                 /(?:stop|disable|turn off)\s+(?:auto[- ]?all|automation)/i,
-                /(?:yoke\s+)?auto[- ]?all\s+off/i
+                /(?:autopilot\s+)?auto[- ]?all\s+off/i
             ],
-            action: 'yoke.toggleAutoAll',
+            action: 'workflowKit.toggleAutoAll',
             description: 'Disable Auto-All mode',
             handler: async () => {
-                await vscode.commands.executeCommand('yoke.toggleAutoAll');
+                await vscode.commands.executeCommand('workflowKit.toggleAutoAll');
             }
         });
 
         this.registerCommand({
             patterns: [
-                /(?:start|enable|begin)\s+(?:autonomous|yoke)\s*(?:mode|loop)?/i,
-                /(?:yoke\s+)?(?:start|go)\s+autonomous/i
+                /(?:start|enable|begin)\s+(?:autonomous|autopilot)\s*(?:mode|loop)?/i,
+                /(?:autopilot\s+)?(?:start|go)\s+autonomous/i
             ],
-            action: 'yoke.toggleYokeMode',
+            action: 'workflowKit.toggleAutopilotMode',
             description: 'Start autonomous mode',
             handler: async () => {
-                await vscode.commands.executeCommand('yoke.toggleYokeMode');
+                await vscode.commands.executeCommand('workflowKit.toggleAutopilotMode');
             }
         });
 
         this.registerCommand({
             patterns: [
-                /(?:stop|end|disable)\s+(?:autonomous|yoke)\s*(?:mode|loop)?/i,
-                /(?:yoke\s+)?stop/i
+                /(?:stop|end|disable)\s+(?:autonomous|autopilot)\s*(?:mode|loop)?/i,
+                /(?:autopilot\s+)?stop/i
             ],
-            action: 'yoke.toggleYokeMode',
+            action: 'workflowKit.toggleAutopilotMode',
             description: 'Stop autonomous mode',
             handler: async () => {
-                await vscode.commands.executeCommand('yoke.toggleYokeMode');
+                await vscode.commands.executeCommand('workflowKit.toggleAutopilotMode');
             }
         });
 
@@ -94,7 +94,7 @@ export class VoiceController {
         this.registerCommand({
             patterns: [
                 /(?:switch|change|use)\s+(?:to\s+)?(?:claude|opus)/i,
-                /(?:yoke\s+)?use\s+claude/i
+                /(?:autopilot\s+)?use\s+claude/i
             ],
             action: 'switchModel:claude',
             description: 'Switch to Claude model',
@@ -106,7 +106,7 @@ export class VoiceController {
         this.registerCommand({
             patterns: [
                 /(?:switch|change|use)\s+(?:to\s+)?(?:gemini|google)/i,
-                /(?:yoke\s+)?use\s+gemini/i
+                /(?:autopilot\s+)?use\s+gemini/i
             ],
             action: 'switchModel:gemini',
             description: 'Switch to Gemini model',
@@ -118,7 +118,7 @@ export class VoiceController {
         this.registerCommand({
             patterns: [
                 /(?:switch|change|use)\s+(?:to\s+)?(?:flash|fast|quick)/i,
-                /(?:yoke\s+)?use\s+flash/i
+                /(?:autopilot\s+)?use\s+flash/i
             ],
             action: 'switchModel:flash',
             description: 'Switch to fast model',
@@ -131,12 +131,12 @@ export class VoiceController {
         this.registerCommand({
             patterns: [
                 /(?:open|show)\s+(?:dashboard|settings|config)/i,
-                /(?:yoke\s+)?settings/i
+                /(?:autopilot\s+)?settings/i
             ],
-            action: 'yoke.openSettings',
+            action: 'workflowKit.openSettings',
             description: 'Open dashboard',
             handler: async () => {
-                await vscode.commands.executeCommand('yoke.openSettings');
+                await vscode.commands.executeCommand('workflowKit.openSettings');
             }
         });
 
@@ -144,7 +144,7 @@ export class VoiceController {
         this.registerCommand({
             patterns: [
                 /(?:what(?:'s| is)\s+)?(?:the\s+)?status/i,
-                /(?:yoke\s+)?status(?:\s+report)?/i
+                /(?:autopilot\s+)?status(?:\s+report)?/i
             ],
             action: 'status',
             description: 'Report current status',
@@ -157,7 +157,7 @@ export class VoiceController {
         this.registerCommand({
             patterns: [
                 /(?:what\s+can\s+you\s+do|help|commands)/i,
-                /(?:yoke\s+)?help/i
+                /(?:autopilot\s+)?help/i
             ],
             action: 'help',
             description: 'List available commands',
@@ -237,7 +237,7 @@ export class VoiceController {
             this.isListening = true;
             log.info('Voice listening started');
 
-            vscode.window.showInformationMessage('🎤 Yoke Voice Control: Listening...');
+            vscode.window.showInformationMessage('🎤 Workflow Kit Voice Control: Listening...');
 
             // Note: Actual speech integration would use VS Code Speech API
             // This is a placeholder for the integration point
@@ -251,12 +251,12 @@ export class VoiceController {
     async stopListening(): Promise<void> {
         this.isListening = false;
         log.info('Voice listening stopped');
-        vscode.window.showInformationMessage('🔇 Yoke Voice Control: Stopped');
+        vscode.window.showInformationMessage('🔇 Workflow Kit Voice Control: Stopped');
     }
 
     // ============ Command Handlers ============
     private async switchModel(modelId: string): Promise<void> {
-        const config = vscode.workspace.getConfiguration('yoke');
+        const config = vscode.workspace.getConfiguration('workflowKit');
 
         // Determine which setting to update based on model type
         if (modelId.includes('claude')) {
@@ -271,14 +271,14 @@ export class VoiceController {
     }
 
     private async reportStatus(): Promise<void> {
-        const config = vscode.workspace.getConfiguration('yoke');
+        const config = vscode.workspace.getConfiguration('workflowKit');
 
         const autoAll = config.get('autoAllEnabled') ? '✅' : '❌';
         const multiTab = config.get('multiTabEnabled') ? '✅' : '❌';
-        const autonomous = config.get('yokeModeEnabled') ? '✅' : '❌';
+        const autonomous = config.get('autopilotModeEnabled') ? '✅' : '❌';
 
         const status = [
-            `🤖 Yoke Status:`,
+            `🤖 Workflow Kit Status:`,
             `Auto-All: ${autoAll}`,
             `Multi-Tab: ${multiTab}`,
             `Autonomous: ${autonomous}`
@@ -293,8 +293,8 @@ export class VoiceController {
             .join('\n');
 
         const panel = vscode.window.createWebviewPanel(
-            'yokeVoiceHelp',
-            'Yoke Voice Commands',
+            'workflowKitVoiceHelp',
+            'Workflow Kit Voice Commands',
             vscode.ViewColumn.One,
             {}
         );
@@ -313,8 +313,8 @@ export class VoiceController {
                 </style>
             </head>
             <body>
-                <h1>🎤 Yoke Voice Commands</h1>
-                <p>Say these commands to control Yoke:</p>
+                <h1>🎤 Workflow Kit Voice Commands</h1>
+                <p>Say these commands to control Workflow Kit:</p>
                 <ul>
                     ${this.commands.map(c => `
                         <li>
@@ -323,7 +323,7 @@ export class VoiceController {
                         </li>
                     `).join('')}
                 </ul>
-                <p><em>Tip: Use wake word "Yoke" before commands for better recognition.</em></p>
+                <p><em>Tip: Use wake word "Workflow Kit" before commands for better recognition.</em></p>
             </body>
             </html>
         `;

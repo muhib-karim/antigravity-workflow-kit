@@ -1,6 +1,6 @@
 /**
- * Yoke - Settings Panel
- * WebView-based settings panel for configuring Yoke
+ * Workflow Kit - Settings Panel
+ * WebView-based settings panel for configuring Workflow Kit
  */
 import * as vscode from 'vscode';
 export declare class SettingsPanel {

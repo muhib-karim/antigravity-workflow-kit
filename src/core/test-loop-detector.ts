@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - Test Loop Detector
+ * Antigravity Workflow Kit - Test Loop Detector
  * Detects when AI is stuck in test-only loops (feature completeness indicator)
  * Inspired by Ralph Claude Code
  * @module core/test-loop-detector

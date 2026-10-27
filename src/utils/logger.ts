@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Structured Logger
+ * Antigravity Workflow Kit - Structured Logger
  * @module logger
  */
 
@@ -15,7 +15,7 @@ interface LogEntry {
 
 class Logger {
     private static instance: Logger;
-    private module: string = 'Yoke';
+    private module: string = 'Workflow Kit';
     private isDebug: boolean = false;
 
     private constructor() { }

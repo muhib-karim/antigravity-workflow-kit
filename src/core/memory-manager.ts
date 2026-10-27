@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - Memory Manager
+ * Antigravity Workflow Kit - Memory Manager
  * Persistent session memory with context tracking
  * @module core/memory-manager
  */
@@ -48,7 +48,7 @@ export class MemoryManager {
     private initializeStorage(): void {
         const folders = vscode.workspace.workspaceFolders;
         if (folders?.[0]) {
-            this.storagePath = path.join(folders[0].uri.fsPath, '.yoke', 'memory');
+            this.storagePath = path.join(folders[0].uri.fsPath, '.workflow-kit', 'memory');
             this.ensureStorageDir();
             this.loadIndex();
         }

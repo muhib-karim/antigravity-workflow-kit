@@ -43,7 +43,7 @@ jobs:
           prerelease: false
           generate_release_notes: true
           body: |
-            ## Yoke Antigravity v${{ steps.version.outputs.version }}
+            ## Antigravity Workflow Kit v${{ steps.version.outputs.version }}
             
             Transform Antigravity into a fully autonomous AI development environment.
             

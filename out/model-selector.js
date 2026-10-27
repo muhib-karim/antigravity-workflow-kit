@@ -1,6 +1,6 @@
 "use strict";
 /**
- * Yoke - Model Selector
+ * Workflow Kit - Model Selector
  * Intelligently selects the optimal AI model based on task type
  */
 Object.defineProperty(exports, "__esModule", { value: true });

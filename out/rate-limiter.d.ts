@@ -1,5 +1,5 @@
 /**
- * Yoke - Rate Limiter
+ * Workflow Kit - Rate Limiter
  * Tracks API usage per model and manages rate limits
  */
 import { ModelId } from './model-selector';

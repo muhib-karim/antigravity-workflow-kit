@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - Agent Orchestrator
+ * Antigravity Workflow Kit - Agent Orchestrator
  * Multi-agent collaboration system for specialized task handling
  * @module core/agent-orchestrator
  */

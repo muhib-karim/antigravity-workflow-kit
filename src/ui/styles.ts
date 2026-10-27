@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Dashboard Styles
+ * Antigravity Workflow Kit - Dashboard Styles
  * Modern glassmorphism CSS with responsive layout
  * @module ui/styles
  */
@@ -548,4 +548,4 @@ export const ICONS = {
 };
 
 export const KOFI_LINK = 'https://ko-fi.com/ai_dev_2024';
-export const GITHUB_LINK = 'https://github.com/ai-dev-2024/yoke-antigravity';
+export const GITHUB_LINK = 'https://github.com/muhib-karim/antigravity-workflow-kit';

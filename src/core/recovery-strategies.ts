@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Recovery Strategies
+ * Antigravity Workflow Kit - Recovery Strategies
  * When stuck, tries different approaches to unstick the AI
  * @module core/recovery-strategies
  */

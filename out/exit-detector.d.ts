@@ -1,5 +1,5 @@
 /**
- * Yoke - Exit Detector
+ * Workflow Kit - Exit Detector
  * Detects when the autonomous loop should gracefully exit
  */
 export interface ExitSignals {

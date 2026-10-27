@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Dashboard WebView
+ * Antigravity Workflow Kit - Dashboard WebView
  * @module ui/dashboard
  */
 
@@ -15,7 +15,7 @@ const log = createLogger('Dashboard');
 export interface DashboardState {
     autoAllEnabled: boolean;
     multiTabEnabled: boolean;
-    yokeModeEnabled: boolean;
+    autopilotModeEnabled: boolean;
     autoSwitchModels: boolean;
     autoGitCommit: boolean;
     // v3.0 features
@@ -68,8 +68,8 @@ export class DashboardPanel {
         }
 
         const panel = vscode.window.createWebviewPanel(
-            'yokeDashboard',
-            'Yoke Dashboard',
+            'workflowKitDashboard',
+            'Workflow Kit Dashboard',
             vscode.ViewColumn.One,
             { enableScripts: true, retainContextWhenHidden: true }
         );
@@ -82,7 +82,7 @@ export class DashboardPanel {
         return {
             autoAllEnabled: config.get('autoAllEnabled'),
             multiTabEnabled: config.get('multiTabEnabled'),
-            yokeModeEnabled: config.get('yokeModeEnabled'),
+            autopilotModeEnabled: config.get('autopilotModeEnabled'),
             autoSwitchModels: config.get('autoSwitchModels'),
             autoGitCommit: config.get('autoGitCommit'),
             // v3.0 features
@@ -180,7 +180,7 @@ export class DashboardPanel {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yoke Dashboard</title>
+    <title>Workflow Kit Dashboard</title>
     <style>${DASHBOARD_CSS}</style>
 </head>
 <body>
@@ -188,13 +188,13 @@ export class DashboardPanel {
         <div class="header">
             <div class="header-left">
                 <span class="logo">⚡</span>
-                <h1>Yoke Dashboard</h1>
+                <h1>Workflow Kit Dashboard</h1>
             </div>
             <div class="header-right">
                 <span class="email">${email}</span>
                 ${planBadge}
-                <span class="status-badge ${this.state.yokeModeEnabled ? 'status-running' : 'status-stopped'}">
-                    ${this.state.yokeModeEnabled ? '🚀 RUNNING' : '⏸️ STOPPED'}
+                <span class="status-badge ${this.state.autopilotModeEnabled ? 'status-running' : 'status-stopped'}">
+                    ${this.state.autopilotModeEnabled ? '🚀 RUNNING' : '⏸️ STOPPED'}
                 </span>
             </div>
         </div>
@@ -231,7 +231,7 @@ export class DashboardPanel {
             </div>
             ${this.generateToggleRow('Auto-All Mode', 'Automatically accept all file changes and terminal commands - no more clicking Accept buttons', 'autoAll', this.state.autoAllEnabled)}
             ${this.generateToggleRow('Multi-Tab Mode', 'Work across all your open Antigravity conversations simultaneously', 'multiTab', this.state.multiTabEnabled)}
-            ${this.generateToggleRow('AI Autonomous Mode', 'Let AI run continuously: it picks the best model, recovers when stuck, uses @web research, and keeps working until your project is done', 'yokeMode', this.state.yokeModeEnabled)}
+            ${this.generateToggleRow('AI Autonomous Mode', 'Let AI run continuously: it picks the best model, recovers when stuck, uses @web research, and keeps working until your project is done', 'autopilotMode', this.state.autopilotModeEnabled)}
             ${this.generateToggleRow('Smart Model Switching', 'Automatically uses Claude for complex problems, Gemini for UI work, and Flash for quick tasks', 'autoSwitchModels', this.state.autoSwitchModels)}
             ${this.generateToggleRow('Auto Git Commit', 'Saves your progress to Git every 10 loops - never lose work', 'autoGitCommit', this.state.autoGitCommit)}
         </div>
@@ -241,7 +241,7 @@ export class DashboardPanel {
             ${this.generateToggleRow('MCP Server', 'Expose AI-callable tools for file ops, terminal commands, git, and diagnostics', 'mcpEnabled', this.state.mcpEnabled)}
             ${this.generateToggleRow('Session Memory', 'Persistent context tracking across sessions with semantic search', 'memoryEnabled', this.state.memoryEnabled)}
             ${this.generateToggleRow('Code Review', 'Automatic security scanning (SQL injection, XSS, secrets) with VS Code diagnostics', 'codeReviewEnabled', this.state.codeReviewEnabled)}
-            ${this.generateToggleRow('Voice Control', 'Natural language voice commands - say "Yoke start autonomous"', 'voiceControlEnabled', this.state.voiceControlEnabled)}
+            ${this.generateToggleRow('Voice Control', 'Natural language voice commands - say "Workflow Kit start autonomous"', 'voiceControlEnabled', this.state.voiceControlEnabled)}
             ${this.generateToggleRow('Multi-Agent', 'Spawn specialized agents (Researcher, Implementer, Reviewer, Tester) for parallel work', 'multiAgentEnabled', this.state.multiAgentEnabled)}
             ${this.generateToggleRow('Notifications', 'Slack/Discord/webhook notifications and daily summaries', 'notificationsEnabled', this.state.notificationsEnabled)}
             ${this.generateToggleRow('Auto Test Gen', 'Automatically generate unit tests for new code (Vitest/Jest/Mocha)', 'autoTestGeneration', this.state.autoTestGeneration)}
@@ -322,7 +322,7 @@ export class DashboardPanel {
         
         // Enable All Features
         function enableAll() {
-            const features = ['autoAll', 'multiTab', 'yokeMode', 'autoSwitchModels', 'autoGitCommit', 
+            const features = ['autoAll', 'multiTab', 'autopilotMode', 'autoSwitchModels', 'autoGitCommit', 
                 'mcpEnabled', 'memoryEnabled', 'codeReviewEnabled', 'voiceControlEnabled', 
                 'multiAgentEnabled', 'notificationsEnabled', 'autoTestGeneration'];
             features.forEach(f => toggleFeature(f, true));
@@ -330,7 +330,7 @@ export class DashboardPanel {
         
         // Disable All Features
         function disableAll() {
-            const features = ['autoAll', 'multiTab', 'yokeMode', 'autoSwitchModels', 'autoGitCommit', 
+            const features = ['autoAll', 'multiTab', 'autopilotMode', 'autoSwitchModels', 'autoGitCommit', 
                 'mcpEnabled', 'memoryEnabled', 'codeReviewEnabled', 'voiceControlEnabled', 
                 'multiAgentEnabled', 'notificationsEnabled', 'autoTestGeneration'];
             features.forEach(f => toggleFeature(f, false));

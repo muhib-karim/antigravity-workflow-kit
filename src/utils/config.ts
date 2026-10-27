@@ -1,10 +1,10 @@
 /**
- * Yoke Antigravity - Configuration Manager
+ * Antigravity Workflow Kit - Configuration Manager
  * @module config
  */
 
 import * as vscode from 'vscode';
-import { YokeConfig, DEFAULT_CONFIG, ModelIdType } from './constants';
+import { WorkflowKitConfig, DEFAULT_CONFIG, ModelIdType } from './constants';
 
 class ConfigurationManager {
     private static instance: ConfigurationManager;
@@ -19,24 +19,24 @@ class ConfigurationManager {
     }
 
     private getConfig(): vscode.WorkspaceConfiguration {
-        return vscode.workspace.getConfiguration('yoke');
+        return vscode.workspace.getConfiguration('workflowKit');
     }
 
-    get<K extends keyof YokeConfig>(key: K): YokeConfig[K] {
+    get<K extends keyof WorkflowKitConfig>(key: K): WorkflowKitConfig[K] {
         const config = this.getConfig();
         return config.get(key, DEFAULT_CONFIG[key]);
     }
 
-    async set<K extends keyof YokeConfig>(key: K, value: YokeConfig[K]): Promise<void> {
+    async set<K extends keyof WorkflowKitConfig>(key: K, value: WorkflowKitConfig[K]): Promise<void> {
         const config = this.getConfig();
         await config.update(key, value, vscode.ConfigurationTarget.Global);
     }
 
-    getAll(): YokeConfig {
+    getAll(): WorkflowKitConfig {
         return {
             autoAllEnabled: this.get('autoAllEnabled'),
             multiTabEnabled: this.get('multiTabEnabled'),
-            yokeModeEnabled: this.get('yokeModeEnabled'),
+            autopilotModeEnabled: this.get('autopilotModeEnabled'),
             autoSwitchModels: this.get('autoSwitchModels'),
             autoGitCommit: this.get('autoGitCommit'),
             loopInterval: this.get('loopInterval'),
@@ -60,9 +60,9 @@ class ConfigurationManager {
         };
     }
 
-    async setMultiple(updates: Partial<YokeConfig>): Promise<void> {
+    async setMultiple(updates: Partial<WorkflowKitConfig>): Promise<void> {
         for (const [key, value] of Object.entries(updates)) {
-            await this.set(key as keyof YokeConfig, value as YokeConfig[keyof YokeConfig]);
+            await this.set(key as keyof WorkflowKitConfig, value as WorkflowKitConfig[keyof WorkflowKitConfig]);
         }
     }
 

@@ -1,19 +1,19 @@
 {
-    "name": "yoke-antigravity",
-    "displayName": "Yoke AntiGravity",
+    "name": "antigravity-workflow-kit",
+    "displayName": "Antigravity Workflow Kit",
     "description": "Auto-accept file edits and terminal commands in Antigravity. Zero-click AI coding with Auto-All, Multi-Tab, and Autonomous Mode.",
-    "version": "3.0.1",
+    "version": "3.0.2",
     "publisher": "ai-dev-2024",
     "license": "MIT",
     "icon": "media/icon.png",
     "repository": {
         "type": "git",
-        "url": "https://github.com/ai-dev-2024/yoke-antigravity"
+        "url": "https://github.com/muhib-karim/antigravity-workflow-kit"
     },
     "bugs": {
-        "url": "https://github.com/ai-dev-2024/yoke-antigravity/issues"
+        "url": "https://github.com/muhib-karim/antigravity-workflow-kit/issues"
     },
-    "homepage": "https://github.com/ai-dev-2024/yoke-antigravity",
+    "homepage": "https://github.com/muhib-karim/antigravity-workflow-kit",
     "sponsor": {
         "url": "https://ko-fi.com/ai_dev_2024"
     },
@@ -27,7 +27,7 @@
         "autonomous",
         "auto-accept",
         "auto-all",
-        "yoke",
+        "workflow",
         "gemini",
         "claude",
         "cursor",
@@ -45,83 +45,83 @@
     "contributes": {
         "commands": [
             {
-                "command": "yoke.toggleExtension",
-                "title": "Yoke: Toggle Extension ON/OFF"
+                "command": "workflowKit.toggleExtension",
+                "title": "Workflow Kit: Toggle Extension ON/OFF"
             },
             {
-                "command": "yoke.toggleAutoAll",
-                "title": "Yoke: Toggle Auto-All Mode"
+                "command": "workflowKit.toggleAutoAll",
+                "title": "Workflow Kit: Toggle Auto-All Mode"
             },
             {
-                "command": "yoke.toggleMultiTab",
-                "title": "Yoke: Toggle Multi-Tab Mode"
+                "command": "workflowKit.toggleMultiTab",
+                "title": "Workflow Kit: Toggle Multi-Tab Mode"
             },
             {
-                "command": "yoke.toggleYokeMode",
-                "title": "Yoke: Toggle Autonomous Loop"
+                "command": "workflowKit.toggleAutopilotMode",
+                "title": "Workflow Kit: Toggle Autonomous Loop"
             },
             {
-                "command": "yoke.openSettings",
-                "title": "Yoke: Open Dashboard"
+                "command": "workflowKit.openSettings",
+                "title": "Workflow Kit: Open Dashboard"
             },
             {
-                "command": "yoke.toggleMcp",
-                "title": "Yoke: Toggle MCP Server"
+                "command": "workflowKit.toggleMcp",
+                "title": "Workflow Kit: Toggle MCP Server"
             },
             {
-                "command": "yoke.toggleVoice",
-                "title": "Yoke: Toggle Voice Control"
+                "command": "workflowKit.toggleVoice",
+                "title": "Workflow Kit: Toggle Voice Control"
             },
             {
-                "command": "yoke.generateTests",
-                "title": "Yoke: Generate Tests for Current File"
+                "command": "workflowKit.generateTests",
+                "title": "Workflow Kit: Generate Tests for Current File"
             },
             {
-                "command": "yoke.runCodeReview",
-                "title": "Yoke: Run Code Review"
+                "command": "workflowKit.runCodeReview",
+                "title": "Workflow Kit: Run Code Review"
             },
             {
-                "command": "yoke.startMultiAgent",
-                "title": "Yoke: Start Multi-Agent Task"
+                "command": "workflowKit.startMultiAgent",
+                "title": "Workflow Kit: Start Multi-Agent Task"
             },
             {
-                "command": "yoke.showMemory",
-                "title": "Yoke: Show Session Memory"
+                "command": "workflowKit.showMemory",
+                "title": "Workflow Kit: Show Session Memory"
             },
             {
-                "command": "yoke.syncProjectTasks",
-                "title": "Yoke: Sync Project Tasks (Jira/GitHub)"
+                "command": "workflowKit.syncProjectTasks",
+                "title": "Workflow Kit: Sync Project Tasks (Jira/GitHub)"
             }
         ],
         "configuration": {
-            "title": "Yoke AntiGravity",
+            "title": "Antigravity Workflow Kit",
             "properties": {
-                "yoke.autoAllEnabled": {
+                "workflowKit.autoAllEnabled": {
                     "type": "boolean",
                     "default": false,
                     "description": "Auto-accept file edits and commands"
                 },
-                "yoke.multiTabEnabled": {
+                "workflowKit.multiTabEnabled": {
                     "type": "boolean",
                     "default": false,
                     "description": "Work across all conversation tabs"
                 },
-                "yoke.yokeModeEnabled": {
+                "workflowKit.autopilotModeEnabled": {
                     "type": "boolean",
                     "default": false,
                     "description": "Enable autonomous loop with model selection"
                 },
-                "yoke.autoSwitchModels": {
+                "workflowKit.autoSwitchModels": {
                     "type": "boolean",
                     "default": true,
                     "description": "Automatically switch models based on task type"
                 },
-                "yoke.autoGitCommit": {
+                "workflowKit.autoGitCommit": {
                     "type": "boolean",
                     "default": false,
                     "description": "Auto-commit progress every 10 loops"
                 },
-                "yoke.preferredModelForReasoning": {
+                "workflowKit.preferredModelForReasoning": {
                     "type": "string",
                     "default": "claude-opus-4.5-thinking",
                     "enum": [
@@ -131,7 +131,7 @@
                     ],
                     "description": "Model for complex reasoning tasks"
                 },
-                "yoke.preferredModelForFrontend": {
+                "workflowKit.preferredModelForFrontend": {
                     "type": "string",
                     "default": "gemini-3-pro-high",
                     "enum": [
@@ -141,7 +141,7 @@
                     ],
                     "description": "Model for frontend/UI tasks"
                 },
-                "yoke.preferredModelForQuick": {
+                "workflowKit.preferredModelForQuick": {
                     "type": "string",
                     "default": "gemini-3-flash",
                     "enum": [
@@ -151,28 +151,28 @@
                     ],
                     "description": "Model for quick tasks"
                 },
-                "yoke.loopInterval": {
+                "workflowKit.loopInterval": {
                     "type": "number",
                     "default": 30,
                     "minimum": 10,
                     "maximum": 120,
                     "description": "Seconds between autonomous loop iterations"
                 },
-                "yoke.maxLoopsPerSession": {
+                "workflowKit.maxLoopsPerSession": {
                     "type": "number",
                     "default": 100,
                     "minimum": 1,
                     "maximum": 1000,
                     "description": "Maximum loops before pausing"
                 },
-                "yoke.pollFrequency": {
+                "workflowKit.pollFrequency": {
                     "type": "number",
                     "default": 1000,
                     "minimum": 500,
                     "maximum": 5000,
                     "description": "Auto-All polling frequency in ms"
                 },
-                "yoke.bannedCommands": {
+                "workflowKit.bannedCommands": {
                     "type": "array",
                     "default": [
                         "rm -rf /",
@@ -182,21 +182,21 @@
                     ],
                     "description": "Commands to block from auto-execution"
                 },
-                "yoke.maxCallsPerHour": {
+                "workflowKit.maxCallsPerHour": {
                     "type": "number",
                     "default": 100,
                     "minimum": 10,
                     "maximum": 500,
                     "description": "Maximum API calls per hour (rate limiting)"
                 },
-                "yoke.executionTimeout": {
+                "workflowKit.executionTimeout": {
                     "type": "number",
                     "default": 15,
                     "minimum": 1,
                     "maximum": 60,
                     "description": "Minutes before timeout per loop execution"
                 },
-                "yoke.maxConsecutiveTestLoops": {
+                "workflowKit.maxConsecutiveTestLoops": {
                     "type": "number",
                     "default": 3,
                     "minimum": 1,
@@ -215,7 +215,7 @@
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "vscode:prepublish": "npm run compile",
-        "package": "npx @vscode/vsce package --allow-missing-repository"
+        "package": "npx @vscode/vsce package --allow-missing-repository --readme-path docs/MARKETPLACE.md"
     },
     "dependencies": {
         "ws": "^8.13.0"

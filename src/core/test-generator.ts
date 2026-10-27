@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - Test Generator
+ * Antigravity Workflow Kit - Test Generator
  * Autonomous test generation and execution pipeline
  * @module core/test-generator
  */

@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Model Scraper
+ * Antigravity Workflow Kit - Model Scraper
  * Dynamically detects available models from Antigravity's UI
  * @module providers/model-scraper
  */

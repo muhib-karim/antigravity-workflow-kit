@@ -1,5 +1,5 @@
 /**
- * Yoke Extension - Main Entry Point
+ * Workflow Kit Extension - Main Entry Point
  * Autonomous AI development loop for Antigravity with intelligent model selection
  */
 import * as vscode from 'vscode';

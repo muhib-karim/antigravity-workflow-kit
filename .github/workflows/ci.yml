@@ -2,17 +2,20 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
-    branches: [main]
+    branches: [master, main]
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [20.x, 22.x]
 
     steps:
       - name: Checkout
@@ -28,10 +31,13 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npm run lint --if-present
+        run: npm run lint
 
       - name: Type check
-        run: npm run typecheck --if-present
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
 
       - name: Build
         run: npm run compile
@@ -42,6 +48,6 @@ jobs:
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
         with:
-          name: yoke-antigravity-${{ matrix.node-version }}
+          name: antigravity-workflow-kit-${{ matrix.node-version }}
           path: '*.vsix'
           retention-days: 7

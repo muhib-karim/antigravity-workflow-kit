@@ -1,5 +1,5 @@
 /**
- * Yoke - Model Selector
+ * Workflow Kit - Model Selector
  * Intelligently selects the optimal AI model based on task type
  */
 export type ModelId = 'gemini-3-pro-high' | 'gemini-3-pro-low' | 'gemini-3-flash' | 'claude-sonnet-4.5' | 'claude-sonnet-4.5-thinking' | 'claude-opus-4.5-thinking' | 'gpt-oss-120b';

@@ -43,7 +43,7 @@ jobs:
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
         with:
-          name: yoke-antigravity-vsix
+          name: antigravity-workflow-kit-vsix
           path: '*.vsix'
 
   publish:

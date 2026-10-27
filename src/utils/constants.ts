@@ -1,11 +1,11 @@
 /**
- * Yoke Antigravity - Constants and Type Definitions
+ * Antigravity Workflow Kit - Constants and Type Definitions
  * @module constants
  */
 
 // ============ Extension Metadata ============
-export const EXTENSION_NAME = 'yoke-antigravity';
-export const EXTENSION_DISPLAY_NAME = 'Yoke';
+export const EXTENSION_NAME = 'antigravity-workflow-kit';
+export const EXTENSION_DISPLAY_NAME = 'Workflow Kit';
 export const VERSION = '2.0.0';
 
 // ============ CDP Ports ============
@@ -26,11 +26,11 @@ export const ModelId = {
     GEMINI_PRO_LOW: 'gemini-3-pro-low',
     GEMINI_FLASH: 'gemini-3-flash',
     // Claude Models
-    CLAUDE_SONNET: 'claude-sonnet-4-5',
-    CLAUDE_SONNET_THINKING: 'claude-sonnet-4-5-thinking',
-    CLAUDE_OPUS_THINKING: 'claude-opus-4-5-thinking',
+    CLAUDE_SONNET: 'claude-sonnet-4.5',
+    CLAUDE_SONNET_THINKING: 'claude-sonnet-4.5-thinking',
+    CLAUDE_OPUS_THINKING: 'claude-opus-4.5-thinking',
     // GPT Models
-    GPT_OSS: 'gpt-oss-120b-medium',
+    GPT_OSS: 'gpt-oss-120b',
 } as const;
 
 // Model display names matching Antigravity's UI exactly
@@ -57,10 +57,10 @@ export const TaskType = {
 export type TaskTypeValue = typeof TaskType[keyof typeof TaskType];
 
 // ============ Feature Flags ============
-export interface YokeConfig {
+export interface WorkflowKitConfig {
     autoAllEnabled: boolean;
     multiTabEnabled: boolean;
-    yokeModeEnabled: boolean;
+    autopilotModeEnabled: boolean;
     autoSwitchModels: boolean;
     autoGitCommit: boolean;
     loopInterval: number;
@@ -83,10 +83,10 @@ export interface YokeConfig {
     autoTestGeneration: boolean;
 }
 
-export const DEFAULT_CONFIG: YokeConfig = {
+export const DEFAULT_CONFIG: WorkflowKitConfig = {
     autoAllEnabled: false,
     multiTabEnabled: false,
-    yokeModeEnabled: false,
+    autopilotModeEnabled: false,
     autoSwitchModels: true,
     autoGitCommit: false,
     loopInterval: DEFAULT_LOOP_INTERVAL_SECONDS,

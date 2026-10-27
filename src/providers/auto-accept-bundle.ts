@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Auto Accept Script Bundle
+ * Antigravity Workflow Kit - Auto Accept Script Bundle
  * Bundled version of auto-accept logic for injection into webviews
  * @module providers/auto-accept-bundle
  */
@@ -10,8 +10,8 @@
 export const AUTO_ACCEPT_SCRIPT = `
 (function() {
   // Prevent double initialization
-  if (window.__yokeAutoAccept) return;
-  window.__yokeAutoAccept = true;
+  if (window.__workflowKitAutoAccept) return;
+  window.__workflowKitAutoAccept = true;
   
   // ========== State ==========
   window.__autoAcceptState = window.__autoAcceptState || {
@@ -132,14 +132,14 @@ export const AUTO_ACCEPT_SCRIPT = `
       
       const clicked = clickAcceptButtons();
       if (clicked > 0) {
-        console.log('[Yoke] Clicked ' + clicked + ' accept button(s)');
+        console.log('[Workflow Kit] Clicked ' + clicked + ' accept button(s)');
       }
       
       pollTimer = setTimeout(poll, interval);
     }
     
     poll();
-    console.log('[Yoke] Auto-accept started');
+    console.log('[Workflow Kit] Auto-accept started');
   };
   
   window.__autoAllStop = function() {
@@ -148,14 +148,14 @@ export const AUTO_ACCEPT_SCRIPT = `
       clearTimeout(pollTimer);
       pollTimer = null;
     }
-    console.log('[Yoke] Auto-accept stopped');
+    console.log('[Workflow Kit] Auto-accept stopped');
   };
   
   window.__autoAcceptOnce = function() {
     return clickAcceptButtons();
   };
   
-  console.log('[Yoke] Auto-accept script loaded');
+  console.log('[Workflow Kit] Auto-accept script loaded');
 })();
 `;
 

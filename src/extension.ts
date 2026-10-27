@@ -1,6 +1,6 @@
 /**
- * Yoke Antigravity - Main Extension Entry Point
- * Replicates AUTO-ALL-Antigravity's working flow + adds Yoke features
+ * Antigravity Workflow Kit - Main Extension Entry Point
+ * Replicates AUTO-ALL-Antigravity's working flow + adds Workflow Kit features
  * @module extension
  */
 
@@ -37,7 +37,7 @@ let globalContext: vscode.ExtensionContext;
 // ============ Activation (matches old extension flow) ============
 export function activate(context: vscode.ExtensionContext): void {
     globalContext = context;
-    log.info('Yoke Antigravity activating...');
+    log.info('Antigravity Workflow Kit activating...');
 
     // Detect IDE
     const appName = vscode.env.appName || '';
@@ -62,7 +62,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // Set log file like old extension
         try {
-            const logPath = path.join(context.extensionPath, 'yoke-cdp.log');
+            const logPath = path.join(context.extensionPath, 'workflow-kit-cdp.log');
             cdpHandler.setLogFile(logPath);
         } catch { }
 
@@ -83,7 +83,7 @@ export function activate(context: vscode.ExtensionContext): void {
     autonomousLoop.setStatusCallback((status) => {
         updateStatusBar();
         if (!status.running) {
-            config.set('yokeModeEnabled', false);
+            config.set('autopilotModeEnabled', false);
         }
     });
 
@@ -92,13 +92,13 @@ export function activate(context: vscode.ExtensionContext): void {
         log.warn(`Environment check error: ${(err as Error).message}`);
     });
 
-    log.info('Yoke Antigravity activated!');
+    log.info('Antigravity Workflow Kit activated!');
 }
 
 // ============ Environment Check (SAME AS OLD EXTENSION) ============
 async function checkEnvironmentAndStart(): Promise<void> {
     if (config.get('autoAllEnabled')) {
-        log.info('Initializing Yoke Auto-All environment...');
+        log.info('Initializing Workflow Kit Auto-All environment...');
         // AUTO-PROMPT for relaunch if CDP not available
         await ensureCDPOrPrompt(true);
         await startPolling();
@@ -130,7 +130,7 @@ async function ensureCDPOrPrompt(showPrompt: boolean): Promise<void> {
 // ============ Polling (SAME AS OLD EXTENSION) ============
 async function startPolling(): Promise<void> {
     if (pollTimer) clearInterval(pollTimer);
-    log.info('Yoke: Starting CDP polling...');
+    log.info('Workflow Kit: Starting CDP polling...');
 
     await syncCDPSession();
 
@@ -169,27 +169,27 @@ async function stopPolling(): Promise<void> {
             await cdpHandler.stop();
         } catch { }
     }
-    log.info('Yoke: Polling stopped');
+    log.info('Workflow Kit: Polling stopped');
 }
 
 // ============ Commands ============
 function registerCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         // Core commands
-        vscode.commands.registerCommand('yoke.toggleExtension', toggleExtension),
-        vscode.commands.registerCommand('yoke.toggleAutoAll', toggleAutoAll),
-        vscode.commands.registerCommand('yoke.toggleMultiTab', toggleMultiTab),
-        vscode.commands.registerCommand('yoke.toggleYokeMode', toggleYokeMode),
-        vscode.commands.registerCommand('yoke.openSettings', () => openDashboard(context)),
-        vscode.commands.registerCommand('yoke.resetCircuitBreaker', resetCircuitBreaker),
+        vscode.commands.registerCommand('workflowKit.toggleExtension', toggleExtension),
+        vscode.commands.registerCommand('workflowKit.toggleAutoAll', toggleAutoAll),
+        vscode.commands.registerCommand('workflowKit.toggleMultiTab', toggleMultiTab),
+        vscode.commands.registerCommand('workflowKit.toggleAutopilotMode', toggleAutopilotMode),
+        vscode.commands.registerCommand('workflowKit.openSettings', () => openDashboard(context)),
+        vscode.commands.registerCommand('workflowKit.resetCircuitBreaker', resetCircuitBreaker),
         // New feature commands
-        vscode.commands.registerCommand('yoke.toggleMcp', toggleMcp),
-        vscode.commands.registerCommand('yoke.toggleVoice', toggleVoice),
-        vscode.commands.registerCommand('yoke.generateTests', generateTests),
-        vscode.commands.registerCommand('yoke.runCodeReview', runCodeReview),
-        vscode.commands.registerCommand('yoke.startMultiAgent', startMultiAgent),
-        vscode.commands.registerCommand('yoke.showMemory', showMemory),
-        vscode.commands.registerCommand('yoke.syncProjectTasks', syncProjectTasks)
+        vscode.commands.registerCommand('workflowKit.toggleMcp', toggleMcp),
+        vscode.commands.registerCommand('workflowKit.toggleVoice', toggleVoice),
+        vscode.commands.registerCommand('workflowKit.generateTests', generateTests),
+        vscode.commands.registerCommand('workflowKit.runCodeReview', runCodeReview),
+        vscode.commands.registerCommand('workflowKit.startMultiAgent', startMultiAgent),
+        vscode.commands.registerCommand('workflowKit.showMemory', showMemory),
+        vscode.commands.registerCommand('workflowKit.syncProjectTasks', syncProjectTasks)
     );
 }
 
@@ -267,13 +267,13 @@ async function runCodeReview(): Promise<void> {
 
     // Show diagnostics in VS Code
     const diagnostics = codeReviewer.showDiagnostics(editor.document, result.issues);
-    const collection = vscode.languages.createDiagnosticCollection('yoke-review');
+    const collection = vscode.languages.createDiagnosticCollection('workflow-kit-review');
     collection.set(editor.document.uri, diagnostics);
 
     vscode.window.showInformationMessage(result.summary, 'View Details').then(action => {
         if (action === 'View Details') {
             const panel = vscode.window.createWebviewPanel(
-                'yokeCodeReview',
+                'workflowKitCodeReview',
                 `Code Review: ${filename}`,
                 vscode.ViewColumn.Two,
                 {}
@@ -343,8 +343,8 @@ async function showMemory(): Promise<void> {
     const recent = memoryManager.getRecentMemories(10);
 
     const panel = vscode.window.createWebviewPanel(
-        'yokeMemory',
-        'Yoke Session Memory',
+        'workflowKitMemory',
+        'Workflow Kit Session Memory',
         vscode.ViewColumn.Two,
         {}
     );
@@ -402,7 +402,7 @@ async function syncProjectTasks(): Promise<void> {
             return;
         }
 
-        vscode.window.showInformationMessage('Configure integration in .yoke/project-manager.json');
+        vscode.window.showInformationMessage('Configure integration in .workflow-kit/project-manager.json');
         return;
     }
 
@@ -430,22 +430,22 @@ async function toggleExtension(): Promise<void> {
 
     if (current) {
         // Turning OFF - disable everything
-        log.info('Yoke: Turning OFF');
+        log.info('Workflow Kit: Turning OFF');
         await config.set('autoAllEnabled', false);
         await stopPolling();
 
         // Also stop autonomous mode if running
         if (autonomousLoop.isRunning()) {
             autonomousLoop.stop('Extension disabled');
-            await config.set('yokeModeEnabled', false);
+            await config.set('autopilotModeEnabled', false);
         }
 
-        vscode.window.showInformationMessage('⏸️ Yoke: OFF');
+        vscode.window.showInformationMessage('⏸️ Workflow Kit: OFF');
     } else {
         // Turning ON - enable auto-all
-        log.info('Yoke: Turning ON');
+        log.info('Workflow Kit: Turning ON');
         await config.set('autoAllEnabled', true);
-        vscode.window.showInformationMessage('✅ Yoke: ON');
+        vscode.window.showInformationMessage('✅ Workflow Kit: ON');
         ensureCDPOrPrompt(true).then(() => startPolling());
     }
 
@@ -462,13 +462,13 @@ async function toggleAutoAll(): Promise<void> {
 
     if (!current) {
         // Enabling - same as old extension
-        log.info('Yoke Auto-All: Enabled');
-        vscode.window.showInformationMessage('✅ Yoke Auto-All: ON');
+        log.info('Workflow Kit Auto-All: Enabled');
+        vscode.window.showInformationMessage('✅ Workflow Kit Auto-All: ON');
         ensureCDPOrPrompt(true).then(() => startPolling());
     } else {
         // Disabling
-        log.info('Yoke Auto-All: Disabled');
-        vscode.window.showInformationMessage('⏸️ Yoke Auto-All: OFF');
+        log.info('Workflow Kit Auto-All: Disabled');
+        vscode.window.showInformationMessage('⏸️ Workflow Kit Auto-All: OFF');
         await stopPolling();
     }
 }
@@ -494,12 +494,12 @@ async function toggleMultiTab(): Promise<void> {
     updateStatusBar();
 }
 
-async function toggleYokeMode(): Promise<void> {
+async function toggleAutopilotMode(): Promise<void> {
     // Use actual loop state, not config - this ensures proper sync
     const isRunning = autonomousLoop.isRunning();
 
     // Update config to match the intended new state
-    await config.set('yokeModeEnabled', !isRunning);
+    await config.set('autopilotModeEnabled', !isRunning);
 
     if (!isRunning) {
         log.info('AI Autonomous Mode enabled');
@@ -511,7 +511,7 @@ async function toggleYokeMode(): Promise<void> {
             ensureCDPOrPrompt(true).then(() => startPolling());
         }
 
-        startYokeAutonomous();
+        startWorkflowKitAutonomous();
     } else {
         log.info('AI Autonomous Mode disabled');
         autonomousLoop.stop('User stopped');
@@ -525,8 +525,8 @@ function resetCircuitBreaker(): void {
     vscode.window.showInformationMessage('✅ Circuit breaker reset.');
 }
 
-// ============ Yoke Autonomous ============
-async function startYokeAutonomous(): Promise<void> {
+// ============ Workflow Kit Autonomous ============
+async function startWorkflowKitAutonomous(): Promise<void> {
     vscode.window.showInformationMessage(
         '🚀 AI Autonomous Mode: STARTING',
         'Stop'
@@ -555,7 +555,7 @@ function openDashboard(context: vscode.ExtensionContext): void {
     ).updateState({
         autoAllEnabled: config.get('autoAllEnabled'),
         multiTabEnabled: config.get('multiTabEnabled'),
-        yokeModeEnabled: loopStatus.running,
+        autopilotModeEnabled: loopStatus.running,
         autoSwitchModels: config.get('autoSwitchModels'),
         autoGitCommit: config.get('autoGitCommit'),
         loopCount: loopStatus.loopCount,
@@ -573,8 +573,8 @@ async function handleFeatureToggle(feature: string, enabled: boolean): Promise<v
         case 'multiTab':
             if (enabled !== config.get('multiTabEnabled')) await toggleMultiTab();
             break;
-        case 'yokeMode':
-            if (enabled !== autonomousLoop.isRunning()) await toggleYokeMode();
+        case 'autopilotMode':
+            if (enabled !== autonomousLoop.isRunning()) await toggleAutopilotMode();
             break;
         case 'autoSwitchModels':
             await config.set('autoSwitchModels', enabled);
@@ -597,7 +597,7 @@ async function handleFeatureToggle(feature: string, enabled: boolean): Promise<v
 
 async function handleSaveSettings(settings: Record<string, unknown>, silent = false): Promise<void> {
     for (const [key, value] of Object.entries(settings)) {
-        await config.set(key as keyof import('./utils/constants').YokeConfig, value as never);
+        await config.set(key as keyof import('./utils/constants').WorkflowKitConfig, value as never);
     }
     if (!silent) {
         vscode.window.showInformationMessage('Settings saved!');
@@ -610,7 +610,7 @@ function updateStatusBar(): void {
     statusBar.update({
         autoAllEnabled: config.get('autoAllEnabled'),
         multiTabEnabled: config.get('multiTabEnabled'),
-        yokeModeEnabled: loopStatus.running,
+        autopilotModeEnabled: loopStatus.running,
         loopCount: loopStatus.loopCount,
     });
 }
@@ -620,5 +620,5 @@ export function deactivate(): void {
     stopPolling();
     autonomousLoop.stop('Extension deactivated');
     statusBar?.dispose();
-    log.info('Yoke Antigravity deactivated');
+    log.info('Antigravity Workflow Kit deactivated');
 }

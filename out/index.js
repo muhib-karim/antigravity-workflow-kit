@@ -1,11 +1,11 @@
 "use strict";
 /**
- * Yoke - Main Entry Point
+ * Workflow Kit - Main Entry Point
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ExitDetector = exports.RateLimiter = exports.selectModelForTask = exports.selectModel = exports.analyzeTaskType = exports.MODELS = exports.YokeLoop = void 0;
+exports.ExitDetector = exports.RateLimiter = exports.selectModelForTask = exports.selectModel = exports.analyzeTaskType = exports.MODELS = exports.AutopilotLoop = void 0;
 var loop_1 = require("./loop");
-Object.defineProperty(exports, "YokeLoop", { enumerable: true, get: function () { return loop_1.YokeLoop; } });
+Object.defineProperty(exports, "AutopilotLoop", { enumerable: true, get: function () { return loop_1.AutopilotLoop; } });
 var model_selector_1 = require("./model-selector");
 Object.defineProperty(exports, "MODELS", { enumerable: true, get: function () { return model_selector_1.MODELS; } });
 Object.defineProperty(exports, "analyzeTaskType", { enumerable: true, get: function () { return model_selector_1.analyzeTaskType; } });

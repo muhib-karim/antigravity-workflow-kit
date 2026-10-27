@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - Model Provider
+ * Antigravity Workflow Kit - Model Provider
  * Custom model provider support for multiple AI backends
  * @module providers/model-provider
  */

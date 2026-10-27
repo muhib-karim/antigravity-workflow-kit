@@ -1,6 +1,6 @@
 /**
- * Yoke - All-in-One Autonomous Antigravity Extension
- * Features: Auto-All, Multi-Tab, Yoke Mode (autonomous loop), Intelligent Model Selection
+ * Workflow Kit - All-in-One Autonomous Antigravity Extension
+ * Features: Auto-All, Multi-Tab, Autopilot Mode (autonomous loop), Intelligent Model Selection
  */
 
 const vscode = require('vscode');
@@ -14,7 +14,7 @@ let cachedUsage = null;
 let globalContext;
 let autoAllEnabled = false;
 let multiTabEnabled = false;
-let yokeModeEnabled = false;
+let autopilotModeEnabled = false;
 let autoSwitchModels = true;
 let autoGitCommit = false;
 let pollFrequency = 1000;
@@ -25,16 +25,16 @@ let bannedCommands = [];
 // Status bar items
 let statusAutoAll;
 let statusMultiTab;
-let statusYoke;
+let statusWorkflowKit;
 let statusSettings;
 
 // CDP and handlers  
 let cdpHandler;
 let relauncher;
 
-// Yoke state
-let yokeLoopTimer;
-let yokeLoopCount = 0;
+// Workflow Kit state
+let autopilotLoopTimer;
+let autopilotLoopCount = 0;
 let sessionStats = {
     promptsSent: 0,
     modelSwitches: 0,
@@ -46,13 +46,13 @@ let sessionStats = {
 // ============ LOGGING ============
 function log(message) {
     const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-    console.log(`[Yoke ${timestamp}] ${message}`);
+    console.log(`[Workflow Kit ${timestamp}] ${message}`);
 }
 
 // ============ ACTIVATION ============
 async function activate(context) {
     globalContext = context;
-    log('Yoke All-in-One extension activating...');
+    log('Workflow Kit All-in-One extension activating...');
 
     // Load saved states
     loadConfiguration();
@@ -82,10 +82,10 @@ async function activate(context) {
 
     // Register commands
     context.subscriptions.push(
-        vscode.commands.registerCommand('yoke.toggleAutoAll', () => toggleAutoAll()),
-        vscode.commands.registerCommand('yoke.toggleMultiTab', () => toggleMultiTab()),
-        vscode.commands.registerCommand('yoke.toggleYokeMode', () => toggleYokeMode()),
-        vscode.commands.registerCommand('yoke.openSettings', () => openDashboard(context))
+        vscode.commands.registerCommand('workflowKit.toggleAutoAll', () => toggleAutoAll()),
+        vscode.commands.registerCommand('workflowKit.toggleMultiTab', () => toggleMultiTab()),
+        vscode.commands.registerCommand('workflowKit.toggleAutopilotMode', () => toggleAutopilotMode()),
+        vscode.commands.registerCommand('workflowKit.openSettings', () => openDashboard(context))
     );
 
     updateAllStatusBars();
@@ -94,18 +94,18 @@ async function activate(context) {
     if (autoAllEnabled) {
         startAutoAllPolling();
     }
-    if (yokeModeEnabled) {
-        startYokeLoop();
+    if (autopilotModeEnabled) {
+        startAutopilotLoop();
     }
 
-    log('Yoke extension activated!');
+    log('Workflow Kit extension activated!');
 }
 
 function loadConfiguration() {
-    const config = vscode.workspace.getConfiguration('yoke');
+    const config = vscode.workspace.getConfiguration('workflowKit');
     autoAllEnabled = config.get('autoAllEnabled', false);
     multiTabEnabled = config.get('multiTabEnabled', false);
-    yokeModeEnabled = config.get('yokeModeEnabled', false);
+    autopilotModeEnabled = config.get('autopilotModeEnabled', false);
     autoSwitchModels = config.get('autoSwitchModels', true);
     autoGitCommit = config.get('autoGitCommit', false);
     pollFrequency = config.get('pollFrequency', 1000);
@@ -118,26 +118,26 @@ function loadConfiguration() {
 function createStatusBarItems(context) {
     // Auto-All status (rightmost to work left)
     statusAutoAll = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 103);
-    statusAutoAll.command = 'yoke.toggleAutoAll';
+    statusAutoAll.command = 'workflowKit.toggleAutoAll';
     context.subscriptions.push(statusAutoAll);
     statusAutoAll.show();
 
     // Multi-Tab status
     statusMultiTab = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 102);
-    statusMultiTab.command = 'yoke.toggleMultiTab';
+    statusMultiTab.command = 'workflowKit.toggleMultiTab';
     context.subscriptions.push(statusMultiTab);
 
-    // Yoke Mode status  
-    statusYoke = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 101);
-    statusYoke.command = 'yoke.toggleYokeMode';
-    context.subscriptions.push(statusYoke);
-    statusYoke.show();
+    // Autopilot Mode status  
+    statusWorkflowKit = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 101);
+    statusWorkflowKit.command = 'workflowKit.toggleAutopilotMode';
+    context.subscriptions.push(statusWorkflowKit);
+    statusWorkflowKit.show();
 
     // Settings gear
     statusSettings = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    statusSettings.command = 'yoke.openSettings';
-    statusSettings.text = '$(gear) Yoke Settings';
-    statusSettings.tooltip = 'Open Yoke Dashboard & Settings';
+    statusSettings.command = 'workflowKit.openSettings';
+    statusSettings.text = '$(gear) Workflow Kit Settings';
+    statusSettings.tooltip = 'Open Workflow Kit Dashboard & Settings';
     context.subscriptions.push(statusSettings);
     statusSettings.show();
 }
@@ -168,15 +168,15 @@ function updateAllStatusBars() {
         statusMultiTab.hide();
     }
 
-    // Yoke Mode
-    if (yokeModeEnabled) {
-        statusYoke.text = `$(sync~spin) Yoke: ON (#${yokeLoopCount})`;
-        statusYoke.tooltip = `Autonomous loop running - ${yokeLoopCount} loops - Click to stop`;
-        statusYoke.backgroundColor = new vscode.ThemeColor('statusBarItem.prominentBackground');
+    // Autopilot Mode
+    if (autopilotModeEnabled) {
+        statusWorkflowKit.text = `$(sync~spin) Workflow Kit: ON (#${autopilotLoopCount})`;
+        statusWorkflowKit.tooltip = `Autonomous loop running - ${autopilotLoopCount} loops - Click to stop`;
+        statusWorkflowKit.backgroundColor = new vscode.ThemeColor('statusBarItem.prominentBackground');
     } else {
-        statusYoke.text = '$(debug-pause) Yoke: OFF';
-        statusYoke.tooltip = 'Autonomous loop is OFF - Click to start';
-        statusYoke.backgroundColor = undefined;
+        statusWorkflowKit.text = '$(debug-pause) Workflow Kit: OFF';
+        statusWorkflowKit.tooltip = 'Autonomous loop is OFF - Click to start';
+        statusWorkflowKit.backgroundColor = undefined;
     }
 }
 
@@ -185,17 +185,17 @@ let pollTimer;
 
 async function toggleAutoAll() {
     autoAllEnabled = !autoAllEnabled;
-    await vscode.workspace.getConfiguration('yoke').update('autoAllEnabled', autoAllEnabled, true);
+    await vscode.workspace.getConfiguration('workflowKit').update('autoAllEnabled', autoAllEnabled, true);
 
     updateAllStatusBars();
 
     if (autoAllEnabled) {
         log('Auto-All enabled');
-        vscode.window.showInformationMessage('✅ Yoke Auto-All: ON');
+        vscode.window.showInformationMessage('✅ Workflow Kit Auto-All: ON');
         startAutoAllPolling();
     } else {
         log('Auto-All disabled');
-        vscode.window.showInformationMessage('⏸️ Yoke Auto-All: OFF');
+        vscode.window.showInformationMessage('⏸️ Workflow Kit Auto-All: OFF');
         stopAutoAllPolling();
     }
 }
@@ -245,75 +245,75 @@ async function toggleMultiTab() {
     }
 
     multiTabEnabled = !multiTabEnabled;
-    await vscode.workspace.getConfiguration('yoke').update('multiTabEnabled', multiTabEnabled, true);
+    await vscode.workspace.getConfiguration('workflowKit').update('multiTabEnabled', multiTabEnabled, true);
 
     updateAllStatusBars();
 
     if (multiTabEnabled) {
-        vscode.window.showInformationMessage('✅ Yoke Multi-Tab: ON');
+        vscode.window.showInformationMessage('✅ Workflow Kit Multi-Tab: ON');
     } else {
-        vscode.window.showInformationMessage('⏸️ Yoke Multi-Tab: OFF');
+        vscode.window.showInformationMessage('⏸️ Workflow Kit Multi-Tab: OFF');
     }
 
     syncCDPSessions();
 }
 
-// ============ YOKE MODE (AUTONOMOUS LOOP) ============
-async function toggleYokeMode() {
-    yokeModeEnabled = !yokeModeEnabled;
-    await vscode.workspace.getConfiguration('yoke').update('yokeModeEnabled', yokeModeEnabled, true);
+// ============ AUTOPILOT MODE (AUTONOMOUS LOOP) ============
+async function toggleAutopilotMode() {
+    autopilotModeEnabled = !autopilotModeEnabled;
+    await vscode.workspace.getConfiguration('workflowKit').update('autopilotModeEnabled', autopilotModeEnabled, true);
 
     updateAllStatusBars();
 
-    if (yokeModeEnabled) {
-        log('Yoke Mode enabled');
-        vscode.window.showInformationMessage('🚀 Yoke Autonomous Loop: STARTING');
+    if (autopilotModeEnabled) {
+        log('Autopilot Mode enabled');
+        vscode.window.showInformationMessage('🚀 Workflow Kit Autonomous Loop: STARTING');
         sessionStats.startTime = Date.now();
-        startYokeLoop();
+        startAutopilotLoop();
     } else {
-        log('Yoke Mode disabled');
-        stopYokeLoop();
+        log('Autopilot Mode disabled');
+        stopAutopilotLoop();
         showSessionSummary();
     }
 }
 
-async function startYokeLoop() {
-    yokeLoopCount = 0;
+async function startAutopilotLoop() {
+    autopilotLoopCount = 0;
 
-    // Inject Yoke script via CDP
-    await injectYokeScript();
+    // Inject Workflow Kit script via CDP
+    await injectWorkflowKitScript();
 
     // Start CDP-based autonomous loop
     if (cdpHandler) {
-        const config = getYokeConfig();
+        const config = getWorkflowKitConfig();
         for (const [pageId] of cdpHandler.connections || []) {
             try {
                 await cdpHandler.sendCommand(pageId, 'Runtime.evaluate', {
-                    expression: `if(typeof window !== 'undefined' && window.__yokeStart) window.__yokeStart(${JSON.stringify(config)})`,
+                    expression: `if(typeof window !== 'undefined' && window.__workflowKitStart) window.__workflowKitStart(${JSON.stringify(config)})`,
                     userGesture: true
                 });
-                log(`Yoke started on page ${pageId}`);
+                log(`Workflow Kit started on page ${pageId}`);
             } catch (e) {
-                log(`Failed to start Yoke on ${pageId}: ${e.message}`);
+                log(`Failed to start Workflow Kit on ${pageId}: ${e.message}`);
             }
         }
     }
 
     // Also run local monitoring
-    yokeLoopTimer = setInterval(async () => {
-        if (!yokeModeEnabled) {
-            stopYokeLoop();
+    autopilotLoopTimer = setInterval(async () => {
+        if (!autopilotModeEnabled) {
+            stopAutopilotLoop();
             return;
         }
 
-        yokeLoopCount++;
+        autopilotLoopCount++;
         updateAllStatusBars();
 
         // Check for completion
-        if (yokeLoopCount >= maxLoopsPerSession) {
+        if (autopilotLoopCount >= maxLoopsPerSession) {
             log(`Max loops (${maxLoopsPerSession}) reached`);
-            yokeModeEnabled = false;
-            stopYokeLoop();
+            autopilotModeEnabled = false;
+            stopAutopilotLoop();
             showSessionSummary();
         }
 
@@ -321,41 +321,41 @@ async function startYokeLoop() {
         await updateStatsFromCDP();
 
         // Auto git commit if enabled
-        if (autoGitCommit && yokeLoopCount % 10 === 0) {
+        if (autoGitCommit && autopilotLoopCount % 10 === 0) {
             await gitAutoCommit();
         }
 
     }, loopInterval * 1000);
 }
 
-function stopYokeLoop() {
-    if (yokeLoopTimer) {
-        clearInterval(yokeLoopTimer);
-        yokeLoopTimer = null;
+function stopAutopilotLoop() {
+    if (autopilotLoopTimer) {
+        clearInterval(autopilotLoopTimer);
+        autopilotLoopTimer = null;
     }
 
-    // Stop Yoke in CDP
+    // Stop Workflow Kit in CDP
     if (cdpHandler) {
         for (const [pageId] of cdpHandler.connections || []) {
             try {
                 cdpHandler.sendCommand(pageId, 'Runtime.evaluate', {
-                    expression: 'if(typeof window !== "undefined" && window.__yokeStop) window.__yokeStop()'
+                    expression: 'if(typeof window !== "undefined" && window.__workflowKitStop) window.__workflowKitStop()'
                 }).catch(() => { });
             } catch (e) { }
         }
     }
 
-    yokeModeEnabled = false;
+    autopilotModeEnabled = false;
     updateAllStatusBars();
-    log(`Yoke loop stopped after ${yokeLoopCount} iterations`);
+    log(`Autopilot loop stopped after ${autopilotLoopCount} iterations`);
 }
 
-async function injectYokeScript() {
+async function injectWorkflowKitScript() {
     if (!cdpHandler) return;
 
-    const scriptPath = path.join(__dirname, 'main_scripts', 'yoke_cdp_script.js');
+    const scriptPath = path.join(__dirname, 'main_scripts', 'workflowkit_cdp_script.js');
     if (!fs.existsSync(scriptPath)) {
-        log('Yoke CDP script not found');
+        log('Workflow Kit CDP script not found');
         return;
     }
 
@@ -373,16 +373,16 @@ async function injectYokeScript() {
                     expression: script,
                     userGesture: true
                 });
-                log(`Yoke script injected on ${page.id}`);
+                log(`Workflow Kit script injected on ${page.id}`);
             } catch (e) {
-                log(`Failed to inject Yoke script: ${e.message}`);
+                log(`Failed to inject Workflow Kit script: ${e.message}`);
             }
         }
     }
 }
 
-function getYokeConfig() {
-    const config = vscode.workspace.getConfiguration('yoke');
+function getWorkflowKitConfig() {
+    const config = vscode.workspace.getConfiguration('workflowKit');
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const projectDir = workspaceFolders?.[0]?.uri.fsPath || '';
 
@@ -419,7 +419,7 @@ async function updateStatsFromCDP() {
     for (const [pageId] of cdpHandler.connections || []) {
         try {
             const result = await cdpHandler.sendCommand(pageId, 'Runtime.evaluate', {
-                expression: '(function(){ if(window.__yokeGetStats) return window.__yokeGetStats(); return "{}"; })()',
+                expression: '(function(){ if(window.__workflowKitGetStats) return window.__workflowKitGetStats(); return "{}"; })()',
                 returnByValue: true
             });
 
@@ -441,9 +441,9 @@ async function gitAutoCommit() {
 
     try {
         const { exec } = require('child_process');
-        exec(`git add -A && git commit -m "Yoke auto-commit: Loop #${yokeLoopCount}"`, { cwd: projectDir }, (err) => {
+        exec(`git add -A && git commit -m "Workflow Kit auto-commit: Loop #${autopilotLoopCount}"`, { cwd: projectDir }, (err) => {
             if (!err) {
-                log(`Git auto-commit at loop #${yokeLoopCount}`);
+                log(`Git auto-commit at loop #${autopilotLoopCount}`);
             }
         });
     } catch (e) {
@@ -455,8 +455,8 @@ function showSessionSummary() {
     const duration = sessionStats.startTime ? Math.floor((Date.now() - sessionStats.startTime) / 60000) : 0;
 
     vscode.window.showInformationMessage(
-        `🎉 Yoke Session Complete!\n` +
-        `• Loops: ${yokeLoopCount}\n` +
+        `🎉 Workflow Kit Session Complete!\n` +
+        `• Loops: ${autopilotLoopCount}\n` +
         `• Prompts sent: ${sessionStats.promptsSent}\n` +
         `• Model switches: ${sessionStats.modelSwitches}\n` +
         `• Duration: ${duration} minutes`,
@@ -479,8 +479,8 @@ function openDashboard(context) {
     }
 
     dashboardPanel = vscode.window.createWebviewPanel(
-        'yokeDashboard',
-        'Yoke Dashboard',
+        'workflowKitDashboard',
+        'Workflow Kit Dashboard',
         vscode.ViewColumn.One,
         { enableScripts: true, retainContextWhenHidden: true }
     );
@@ -532,7 +532,7 @@ async function fetchUsageData() {
 }
 
 async function handleFeatureToggle(feature, enabled) {
-    const config = vscode.workspace.getConfiguration('yoke');
+    const config = vscode.workspace.getConfiguration('workflowKit');
 
     switch (feature) {
         case 'autoAll':
@@ -541,8 +541,8 @@ async function handleFeatureToggle(feature, enabled) {
         case 'multiTab':
             if (enabled !== multiTabEnabled) await toggleMultiTab();
             break;
-        case 'yokeMode':
-            if (enabled !== yokeModeEnabled) await toggleYokeMode();
+        case 'autopilotMode':
+            if (enabled !== autopilotModeEnabled) await toggleAutopilotMode();
             break;
         case 'autoSwitchModels':
             autoSwitchModels = enabled;
@@ -558,7 +558,7 @@ async function handleFeatureToggle(feature, enabled) {
 }
 
 async function saveSettings(settings) {
-    const config = vscode.workspace.getConfiguration('yoke');
+    const config = vscode.workspace.getConfiguration('workflowKit');
 
     for (const [key, value] of Object.entries(settings)) {
         await config.update(key, value, true);
@@ -570,16 +570,16 @@ async function saveSettings(settings) {
 function updateDashboardContent() {
     if (!dashboardPanel) return;
 
-    const config = vscode.workspace.getConfiguration('yoke');
+    const config = vscode.workspace.getConfiguration('workflowKit');
     const duration = sessionStats.startTime ? Math.floor((Date.now() - sessionStats.startTime) / 60000) : 0;
 
     dashboardPanel.webview.html = getDashboardHtml({
         autoAllEnabled,
         multiTabEnabled,
-        yokeModeEnabled,
+        autopilotModeEnabled,
         autoSwitchModels,
         autoGitCommit,
-        yokeLoopCount,
+        autopilotLoopCount,
         sessionStats,
         duration,
         config,
@@ -618,7 +618,7 @@ function getDashboardHtml(state) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yoke Dashboard</title>
+    <title>Workflow Kit Dashboard</title>
     <style>
         :root {
             /* Frosted Glass Theme - Dark Mode */
@@ -894,20 +894,20 @@ function getDashboardHtml(state) {
         <div class="header">
             <div class="header-left">
                 <span class="logo">⚡</span>
-                <h1>Yoke Dashboard</h1>
+                <h1>Workflow Kit Dashboard</h1>
             </div>
             <div class="header-right">
                 <span class="email">${emailDisplay}</span>
                 ${planBadge}
-                <span class="status-badge ${state.yokeModeEnabled ? 'status-running' : 'status-stopped'}">
-                    ${state.yokeModeEnabled ? '🚀 RUNNING' : '⏸️ STOPPED'}
+                <span class="status-badge ${state.autopilotModeEnabled ? 'status-running' : 'status-stopped'}">
+                    ${state.autopilotModeEnabled ? '🚀 RUNNING' : '⏸️ STOPPED'}
                 </span>
             </div>
         </div>
         
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value">${state.yokeLoopCount}</div>
+                <div class="stat-value">${state.autopilotLoopCount}</div>
                 <div class="stat-label">Loops</div>
             </div>
             <div class="stat-card">
@@ -956,11 +956,11 @@ function getDashboardHtml(state) {
             
             <div class="toggle-row">
                 <div class="toggle-info">
-                    <h3>Yoke Autonomous Mode</h3>
+                    <h3>Workflow Kit Autonomous Mode</h3>
                     <p>Continuous AI loop with model selection</p>
                 </div>
                 <label class="toggle">
-                    <input type="checkbox" ${state.yokeModeEnabled ? 'checked' : ''} onchange="toggleFeature('yokeMode', this.checked)">
+                    <input type="checkbox" ${state.autopilotModeEnabled ? 'checked' : ''} onchange="toggleFeature('autopilotMode', this.checked)">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -1076,7 +1076,7 @@ function getDashboardHtml(state) {
 // ============ DEACTIVATION ============
 function deactivate() {
     stopAutoAllPolling();
-    stopYokeLoop();
+    stopAutopilotLoop();
     if (cdpHandler) cdpHandler.stop();
 }
 

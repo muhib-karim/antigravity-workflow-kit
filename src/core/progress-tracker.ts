@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Progress Tracker
+ * Antigravity Workflow Kit - Progress Tracker
  * Tracks progress across loop iterations
  * @module core/progress-tracker
  */

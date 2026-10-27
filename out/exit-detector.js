@@ -1,6 +1,6 @@
 "use strict";
 /**
- * Yoke - Exit Detector
+ * Workflow Kit - Exit Detector
  * Detects when the autonomous loop should gracefully exit
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -40,7 +40,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExitDetector = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const EXIT_STATE_FILE = '.yoke-exit-signals.json';
+const EXIT_STATE_FILE = '.workflow-kit-exit-signals.json';
 const DEFAULT_CONFIG = {
     maxConsecutiveTestLoops: 3,
     maxConsecutiveDoneSignals: 2,

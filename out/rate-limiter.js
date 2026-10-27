@@ -1,6 +1,6 @@
 "use strict";
 /**
- * Yoke - Rate Limiter
+ * Workflow Kit - Rate Limiter
  * Tracks API usage per model and manages rate limits
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -40,7 +40,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RateLimiter = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const STATE_FILE = '.yoke-rate-limits.json';
+const STATE_FILE = '.workflow-kit-rate-limits.json';
 // Default rate limit configuration (calls per 5-hour window)
 const DEFAULT_LIMITS = {
     'claude-opus-4.5-thinking': 50,

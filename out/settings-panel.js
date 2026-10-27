@@ -1,7 +1,7 @@
 "use strict";
 /**
- * Yoke - Settings Panel
- * WebView-based settings panel for configuring Yoke
+ * Workflow Kit - Settings Panel
+ * WebView-based settings panel for configuring Workflow Kit
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -62,21 +62,21 @@ class SettingsPanel {
             SettingsPanel.currentPanel._panel.reveal(vscode.ViewColumn.One);
             return;
         }
-        const panel = vscode.window.createWebviewPanel('yokeSettings', 'Yoke Settings', vscode.ViewColumn.One, {
+        const panel = vscode.window.createWebviewPanel('workflowKitSettings', 'Workflow Kit Settings', vscode.ViewColumn.One, {
             enableScripts: true,
             retainContextWhenHidden: true
         });
         SettingsPanel.currentPanel = new SettingsPanel(panel, extensionUri);
     }
     _saveSettings(settings) {
-        const config = vscode.workspace.getConfiguration('yoke');
+        const config = vscode.workspace.getConfiguration('workflowKit');
         Object.keys(settings).forEach(key => {
             config.update(key, settings[key], vscode.ConfigurationTarget.Global);
         });
-        vscode.window.showInformationMessage('Yoke settings saved!');
+        vscode.window.showInformationMessage('Workflow Kit settings saved!');
     }
     _sendCurrentSettings() {
-        const config = vscode.workspace.getConfiguration('yoke');
+        const config = vscode.workspace.getConfiguration('workflowKit');
         this._panel.webview.postMessage({
             command: 'loadSettings',
             settings: {
@@ -97,7 +97,7 @@ class SettingsPanel {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yoke Settings</title>
+    <title>Workflow Kit Settings</title>
     <style>
         :root {
             --bg-primary: #1e1e1e;
@@ -297,7 +297,7 @@ class SettingsPanel {
 </head>
 <body>
     <div class="header">
-        <h1>⚡ Yoke Settings</h1>
+        <h1>⚡ Workflow Kit Settings</h1>
         <span class="badge">Autonomous AI Loop</span>
     </div>
     
@@ -306,7 +306,7 @@ class SettingsPanel {
         
         <div class="setting-row">
             <div class="setting-label">
-                <h3>Enable Yoke Mode</h3>
+                <h3>Enable Autopilot Mode</h3>
                 <p>Toggle autonomous AI development mode</p>
             </div>
             <div class="setting-control">

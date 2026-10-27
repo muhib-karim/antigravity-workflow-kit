@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Model Selector
+ * Antigravity Workflow Kit - Model Selector
  * Intelligent model selection based on task analysis
  * @module core/model-selector
  */
@@ -76,7 +76,7 @@ export class ModelSelector {
      */
     showSwitchNotification(selection: ModelSelection): void {
         vscode.window.showInformationMessage(
-            `🔄 Yoke: ${selection.reasoning}`
+            `🔄 Workflow Kit: ${selection.reasoning}`
         );
     }
 

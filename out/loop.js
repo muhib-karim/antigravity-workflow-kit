@@ -1,6 +1,6 @@
 "use strict";
 /**
- * Yoke - Main Loop
+ * Workflow Kit - Main Loop
  * The autonomous development loop that orchestrates model selection, execution, and exit detection
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -37,7 +37,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.YokeLoop = void 0;
+exports.AutopilotLoop = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const model_selector_1 = require("./model-selector");
@@ -87,7 +87,7 @@ function log(level, message) {
     }
     console.log(`${color}[${timestamp}] [${level}] ${message}${colors.reset}`);
 }
-class YokeLoop {
+class AutopilotLoop {
     constructor(projectDir, config) {
         this.loopCount = 0;
         this.running = false;
@@ -151,10 +151,10 @@ class YokeLoop {
             // antigravity --model <model-id> --prompt <prompt>
             // Simulated execution for development
             const simulatedOutput = `
-[Yoke] Simulated execution with model: ${model.displayName}
-[Yoke] This is a placeholder - actual Antigravity CLI integration needed
-[Yoke] Current task from fix_plan: ${this.getCurrentTask()}
-[Yoke] Prompt length: ${prompt.length} characters
+[Workflow Kit] Simulated execution with model: ${model.displayName}
+[Workflow Kit] This is a placeholder - actual Antigravity CLI integration needed
+[Workflow Kit] Current task from fix_plan: ${this.getCurrentTask()}
+[Workflow Kit] Prompt length: ${prompt.length} characters
       `.trim();
             fs.writeFileSync(outputFile, simulatedOutput);
             // In production, this would be:
@@ -169,14 +169,14 @@ class YokeLoop {
     }
     async runLoop() {
         this.running = true;
-        log('SUCCESS', '🚀 Yoke loop starting');
+        log('SUCCESS', '🚀 Autopilot loop starting');
         log('INFO', `Project directory: ${this.projectDir}`);
         log('INFO', `Max loops: ${this.config.maxLoops}`);
-        // Check if this is a valid Yoke project
+        // Check if this is a valid Workflow Kit project
         const promptPath = path.join(this.projectDir, this.config.promptFile);
         if (!fs.existsSync(promptPath)) {
             log('ERROR', `Prompt file not found: ${this.config.promptFile}`);
-            log('INFO', 'Run "yoke-setup <project-name>" to create a new project');
+            log('INFO', 'Run "workflow-kit-setup <project-name>" to create a new project');
             return;
         }
         while (this.running && this.loopCount < this.config.maxLoops) {
@@ -242,12 +242,12 @@ class YokeLoop {
             log('INFO', `Pausing ${this.config.pauseBetweenLoops / 1000}s before next loop...`);
             await this.sleep(this.config.pauseBetweenLoops);
         }
-        log('SUCCESS', '🎉 Yoke loop finished');
+        log('SUCCESS', '🎉 Autopilot loop finished');
         log('INFO', `Total loops: ${this.loopCount}`);
         log('INFO', `Total API calls: ${this.rateLimiter.getGlobalCalls()}`);
     }
     stop() {
-        log('WARN', 'Stopping Yoke loop...');
+        log('WARN', 'Stopping Autopilot loop...');
         this.running = false;
         this.updateStatus({
             status: 'paused',
@@ -265,4 +265,4 @@ class YokeLoop {
         };
     }
 }
-exports.YokeLoop = YokeLoop;
+exports.AutopilotLoop = AutopilotLoop;

@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - Notification Manager
+ * Antigravity Workflow Kit - Notification Manager
  * Smart notifications for Slack, Discord, webhooks, and daily summaries
  * @module core/notification-manager
  */
@@ -197,7 +197,7 @@ export class NotificationManager {
 
         await this.notify({
             type: 'summary',
-            title: 'Yoke Daily Summary',
+            title: 'Workflow Kit Daily Summary',
             message: `Tasks: ${this.dailyStats.tasksCompleted} | Loops: ${this.dailyStats.loopsRun} | Errors: ${this.dailyStats.errors}`,
             timestamp: Date.now(),
             metadata: this.dailyStats

@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Rate Limit Handler
+ * Antigravity Workflow Kit - Rate Limit Handler
  * Detects rate limits and switches models automatically
  * @module core/rate-limit-handler
  */

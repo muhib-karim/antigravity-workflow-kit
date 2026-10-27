@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - Autonomous Loop Orchestrator
+ * Antigravity Workflow Kit - Autonomous Loop Orchestrator
  * Main loop that runs continuously until goal is achieved
  * @module core/autonomous-loop
  */
@@ -86,7 +86,7 @@ export class AutonomousLoop {
         this.previousModel = null; // Reset model tracking for new session
 
         log.info('🚀 Autonomous loop starting');
-        this.showNotification('🚀 Yoke AntiGravity Autonomous Mode: STARTING');
+        this.showNotification('🚀 Antigravity Workflow Kit Autonomous Mode: STARTING');
 
         // Start the loop
         await this.runLoop(loopConfig);
@@ -201,7 +201,7 @@ export class AutonomousLoop {
                     const recovery = recoveryManager.getNextRecoveryAction();
                     if (recovery) {
                         log.info(`🔄 Attempting recovery: ${recovery.description}`);
-                        this.showNotification(`🔄 Yoke: ${recovery.description}`);
+                        this.showNotification(`🔄 Workflow Kit: ${recovery.description}`);
 
                         // Apply recovery action
                         if (recovery.modelSwitch) {
@@ -387,7 +387,7 @@ export class AutonomousLoop {
         try {
             const { exec } = require('child_process');
             exec(
-                `git add -A && git commit -m "Yoke auto-commit: Loop ${this.loopCount}"`,
+                `git add -A && git commit -m "Workflow Kit auto-commit: Loop ${this.loopCount}"`,
                 { cwd: this.workspaceRoot },
                 (err: Error | null) => {
                     if (!err) log.info(`Git commit at loop ${this.loopCount}`);
@@ -411,11 +411,11 @@ export class AutonomousLoop {
     private showSummary(reason: string): void {
         const summary = progressTracker.getSummary();
         vscode.window.showInformationMessage(
-            `Yoke: ${reason}\n${summary}`,
+            `Workflow Kit: ${reason}\n${summary}`,
             'Open Dashboard'
         ).then((action) => {
             if (action === 'Open Dashboard') {
-                vscode.commands.executeCommand('yoke.openSettings');
+                vscode.commands.executeCommand('workflowKit.openSettings');
             }
         });
     }

@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Task Analyzer
+ * Antigravity Workflow Kit - Task Analyzer
  * Analyzes task descriptions to determine optimal model selection
  * @module core/task-analyzer
  */

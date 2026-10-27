@@ -1,5 +1,5 @@
 /**
- * Yoke - Main Loop
+ * Workflow Kit - Main Loop
  * The autonomous development loop that orchestrates model selection, execution, and exit detection
  */
 import { ModelId } from './model-selector';
@@ -18,7 +18,7 @@ export interface LoopStatus {
     exitReason: string | null;
     timestamp: string;
 }
-export declare class YokeLoop {
+export declare class AutopilotLoop {
     private config;
     private projectDir;
     private rateLimiter;

@@ -1,6 +1,6 @@
 "use strict";
 /**
- * Yoke Extension - Main Entry Point
+ * Workflow Kit Extension - Main Entry Point
  * Autonomous AI development loop for Antigravity with intelligent model selection
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -42,80 +42,80 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const loop_1 = require("./loop");
 const settings_panel_1 = require("./settings-panel");
-let yokeLoop = null;
+let autopilotLoop = null;
 let statusBarItem;
 let isEnabled = false;
 function activate(context) {
-    console.log('Yoke extension activating...');
+    console.log('Workflow Kit extension activating...');
     // Create status bar item
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    statusBarItem.command = 'yoke.toggle';
+    statusBarItem.command = 'workflowKit.toggle';
     updateStatusBar();
     statusBarItem.show();
     // Register commands
-    const toggleCommand = vscode.commands.registerCommand('yoke.toggle', () => {
+    const toggleCommand = vscode.commands.registerCommand('workflowKit.toggle', () => {
         isEnabled = !isEnabled;
-        const config = vscode.workspace.getConfiguration('yoke');
+        const config = vscode.workspace.getConfiguration('workflowKit');
         config.update('enabled', isEnabled, vscode.ConfigurationTarget.Global);
         updateStatusBar();
         if (isEnabled) {
-            vscode.window.showInformationMessage('🚀 Yoke Autonomous Mode: ON');
+            vscode.window.showInformationMessage('🚀 Workflow Kit Autonomous Mode: ON');
             startLoopIfReady();
         }
         else {
-            vscode.window.showInformationMessage('⏸️ Yoke Autonomous Mode: OFF');
+            vscode.window.showInformationMessage('⏸️ Workflow Kit Autonomous Mode: OFF');
             stopLoop();
         }
     });
-    const openSettingsCommand = vscode.commands.registerCommand('yoke.openSettings', () => {
+    const openSettingsCommand = vscode.commands.registerCommand('workflowKit.openSettings', () => {
         settings_panel_1.SettingsPanel.show(context.extensionUri);
     });
-    const startLoopCommand = vscode.commands.registerCommand('yoke.startLoop', () => {
+    const startLoopCommand = vscode.commands.registerCommand('workflowKit.startLoop', () => {
         if (!isEnabled) {
             isEnabled = true;
             updateStatusBar();
         }
         startLoopIfReady();
     });
-    const stopLoopCommand = vscode.commands.registerCommand('yoke.stopLoop', () => {
+    const stopLoopCommand = vscode.commands.registerCommand('workflowKit.stopLoop', () => {
         stopLoop();
-        vscode.window.showInformationMessage('⏹️ Yoke loop stopped');
+        vscode.window.showInformationMessage('⏹️ Autopilot loop stopped');
     });
-    const showStatusCommand = vscode.commands.registerCommand('yoke.showStatus', () => {
+    const showStatusCommand = vscode.commands.registerCommand('workflowKit.showStatus', () => {
         showLoopStatus();
     });
     // Load initial enabled state from config
-    const config = vscode.workspace.getConfiguration('yoke');
+    const config = vscode.workspace.getConfiguration('workflowKit');
     isEnabled = config.get('enabled', false);
     updateStatusBar();
     // Register all disposables
     context.subscriptions.push(statusBarItem, toggleCommand, openSettingsCommand, startLoopCommand, stopLoopCommand, showStatusCommand);
     // Listen for config changes
     vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('yoke.enabled')) {
-            const config = vscode.workspace.getConfiguration('yoke');
+        if (e.affectsConfiguration('workflowKit.enabled')) {
+            const config = vscode.workspace.getConfiguration('workflowKit');
             isEnabled = config.get('enabled', false);
             updateStatusBar();
         }
     });
-    console.log('Yoke extension activated!');
+    console.log('Workflow Kit extension activated!');
 }
 function updateStatusBar() {
     if (isEnabled) {
-        statusBarItem.text = '$(sync~spin) Yoke: ON';
-        statusBarItem.tooltip = 'Yoke Autonomous Mode is ON - Click to toggle';
+        statusBarItem.text = '$(sync~spin) Workflow Kit: ON';
+        statusBarItem.tooltip = 'Workflow Kit Autonomous Mode is ON - Click to toggle';
         statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     }
     else {
-        statusBarItem.text = '$(circle-slash) Yoke: OFF';
-        statusBarItem.tooltip = 'Yoke Autonomous Mode is OFF - Click to toggle';
+        statusBarItem.text = '$(circle-slash) Workflow Kit: OFF';
+        statusBarItem.tooltip = 'Workflow Kit Autonomous Mode is OFF - Click to toggle';
         statusBarItem.backgroundColor = undefined;
     }
 }
 async function startLoopIfReady() {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
-        vscode.window.showWarningMessage('Yoke: No workspace folder open');
+        vscode.window.showWarningMessage('Workflow Kit: No workspace folder open');
         return;
     }
     const projectDir = workspaceFolders[0].uri.fsPath;
@@ -125,47 +125,47 @@ async function startLoopIfReady() {
         await vscode.workspace.fs.stat(promptUri);
     }
     catch {
-        const action = await vscode.window.showWarningMessage('Yoke: No PROMPT.md found. Would you like to create a Yoke project?', 'Create Project', 'Cancel');
+        const action = await vscode.window.showWarningMessage('Workflow Kit: No PROMPT.md found. Would you like to create a Workflow Kit project?', 'Create Project', 'Cancel');
         if (action === 'Create Project') {
             await createProjectFiles(projectDir);
         }
         return;
     }
     // Start the loop
-    const config = vscode.workspace.getConfiguration('yoke');
-    yokeLoop = new loop_1.YokeLoop(projectDir, {
+    const config = vscode.workspace.getConfiguration('workflowKit');
+    autopilotLoop = new loop_1.AutopilotLoop(projectDir, {
         maxLoops: config.get('maxLoopsPerSession', 100),
         pauseBetweenLoops: config.get('pauseBetweenLoops', 5) * 1000,
         verbose: true
     });
-    vscode.window.showInformationMessage('🔄 Yoke autonomous loop starting...');
+    vscode.window.showInformationMessage('🔄 Workflow Kit autonomous loop starting...');
     // Run loop in background
-    yokeLoop.runLoop().then(() => {
-        vscode.window.showInformationMessage('✅ Yoke loop completed!');
+    autopilotLoop.runLoop().then(() => {
+        vscode.window.showInformationMessage('✅ Autopilot loop completed!');
         isEnabled = false;
         updateStatusBar();
     }).catch(error => {
-        vscode.window.showErrorMessage(`Yoke error: ${error.message}`);
+        vscode.window.showErrorMessage(`Workflow Kit error: ${error.message}`);
         isEnabled = false;
         updateStatusBar();
     });
 }
 function stopLoop() {
-    if (yokeLoop) {
-        yokeLoop.stop();
-        yokeLoop = null;
+    if (autopilotLoop) {
+        autopilotLoop.stop();
+        autopilotLoop = null;
     }
     isEnabled = false;
     updateStatusBar();
 }
 function showLoopStatus() {
-    if (!yokeLoop) {
-        vscode.window.showInformationMessage('Yoke: No active loop');
+    if (!autopilotLoop) {
+        vscode.window.showInformationMessage('Workflow Kit: No active loop');
         return;
     }
-    const stats = yokeLoop.getStats();
+    const stats = autopilotLoop.getStats();
     const message = `
-Yoke Status:
+Workflow Kit Status:
 • Loop count: ${stats.loopCount}
 • Models: ${stats.rateLimitStats.map(s => `${s.modelId}: ${s.used}/${s.limit}`).join(', ')}
     `.trim();
@@ -203,10 +203,10 @@ Check @fix_plan.md for the current task list and priorities.
     const path = require('path');
     fs.writeFileSync(path.join(projectDir, 'PROMPT.md'), promptContent);
     fs.writeFileSync(path.join(projectDir, '@fix_plan.md'), fixPlanContent);
-    vscode.window.showInformationMessage('✅ Yoke project files created! Edit PROMPT.md and @fix_plan.md, then start the loop.');
+    vscode.window.showInformationMessage('✅ Workflow Kit project files created! Edit PROMPT.md and @fix_plan.md, then start the loop.');
 }
 function deactivate() {
-    if (yokeLoop) {
-        yokeLoop.stop();
+    if (autopilotLoop) {
+        autopilotLoop.stop();
     }
 }

@@ -1,0 +1,7 @@
+# gitleaks config: default rules plus an allowlist for test fixtures.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake credential used to test the built-in secret detector"
+paths = ['''tests/unit/code-reviewer\.test\.ts''']

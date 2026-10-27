@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - CDP Client
+ * Antigravity Workflow Kit - CDP Client
  * Controls Antigravity browser via Chrome DevTools Protocol
  * @module providers/cdp-client
  */

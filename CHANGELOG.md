@@ -1,9 +1,28 @@
 # Changelog
 
-All notable changes to Yoke AntiGravity will be documented in this file.
+All notable changes to Antigravity Workflow Kit will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [Unreleased]
+
+### Fixed
+- Model IDs in `src/utils/constants.ts` now match the IDs declared in `package.json` settings (e.g. `claude-opus-4.5-thinking`), so display labels and rate-limit model fallback resolve the configured model.
+- `npm run lint` now has an ESLint configuration; CI workflow now triggers on the `master` branch.
+- `npm run package` uses `docs/MARKETPLACE.md` as the VSIX README; legacy `out/` and root `extension.js` are no longer packaged.
+
+### Added
+- Unit tests against the real `src/core` modules and a manifest consistency test (54 tests total).
+
+---
+
+## [3.0.2] - 2026-09-24
+
+### Changed
+- Renamed to Antigravity Workflow Kit (new extension ID ai-dev-2024.antigravity-workflow-kit). Commands and settings now use the workflowKit.* prefix; the autonomous loop mode is now called Autopilot Mode.
 
 ---
 
@@ -18,8 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Users will see "Setup & Restart" dialog on first use to enable auto-accept
 
 ### Published
-- ✅ Open VSX: https://open-vsx.org/extension/ai-dev-2024/yoke-antigravity
-- ✅ GitHub: https://github.com/ai-dev-2024/yoke-antigravity/releases
+- ✅ Open VSX: https://open-vsx.org/extension/ai-dev-2024/antigravity-workflow-kit
+- ✅ GitHub: https://github.com/muhib-karim/antigravity-workflow-kit/releases
 
 ---
 
@@ -34,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Project Management Integration**: Jira & GitHub Issues sync, @fix_plan.md automation, branch and PR generation
 
 #### 🟡 P1/P2 — Medium-Term Priority
-- **Voice Control**: Natural language commands ("Yoke start autonomous", "switch to Claude") with VS Code Speech API integration
+- **Voice Control**: Natural language commands ("Workflow Kit start autonomous", "switch to Claude") with VS Code Speech API integration
 - **Multi-Agent Orchestration**: 5 specialized agents (Researcher, Implementer, Reviewer, Tester, Planner) with parallel task execution
 
 #### 🟢 P3 — Experimental
@@ -43,22 +62,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Smart Notifications**: Slack, Discord, webhook integrations with quiet hours and daily summaries
 
 ### 📦 New Commands
-- `yoke.toggleMcp` — Toggle MCP Server
-- `yoke.toggleVoice` — Toggle Voice Control
-- `yoke.generateTests` — Generate Tests for Current File
-- `yoke.runCodeReview` — Run Code Review
-- `yoke.startMultiAgent` — Start Multi-Agent Task
-- `yoke.showMemory` — Show Session Memory
-- `yoke.syncProjectTasks` — Sync Project Tasks (Jira/GitHub)
+- `workflowKit.toggleMcp` — Toggle MCP Server
+- `workflowKit.toggleVoice` — Toggle Voice Control
+- `workflowKit.generateTests` — Generate Tests for Current File
+- `workflowKit.runCodeReview` — Run Code Review
+- `workflowKit.startMultiAgent` — Start Multi-Agent Task
+- `workflowKit.showMemory` — Show Session Memory
+- `workflowKit.syncProjectTasks` — Sync Project Tasks (Jira/GitHub)
 
 ### ⚙️ New Configuration Settings
-- `yoke.mcpEnabled` — MCP server toggle
-- `yoke.memoryEnabled` — Persistent memory toggle
-- `yoke.codeReviewEnabled` — Code review toggle
-- `yoke.voiceControlEnabled` — Voice control toggle
-- `yoke.notificationsEnabled` — Notifications toggle
-- `yoke.multiAgentEnabled` — Multi-agent toggle
-- `yoke.autoTestGeneration` — Auto test generation toggle
+- `workflowKit.mcpEnabled` — MCP server toggle
+- `workflowKit.memoryEnabled` — Persistent memory toggle
+- `workflowKit.codeReviewEnabled` — Code review toggle
+- `workflowKit.voiceControlEnabled` — Voice control toggle
+- `workflowKit.notificationsEnabled` — Notifications toggle
+- `workflowKit.multiAgentEnabled` — Multi-agent toggle
+- `workflowKit.autoTestGeneration` — Auto test generation toggle
 
 ### 📊 Technical
 - Bundle size: 293.6kb (up from 221.9kb)
@@ -122,18 +141,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.10.0] - 2024-12-30
 
 ### Added (Ralph Claude Code Features)
-- **Test Loop Detection**: Automatically exits after 3 consecutive test-only loops (configurable via `yoke.maxConsecutiveTestLoops`)
-- **Hourly Rate Limiting**: Configurable max calls per hour (`yoke.maxCallsPerHour`, default: 100)
+- **Test Loop Detection**: Automatically exits after 3 consecutive test-only loops (configurable via `workflowKit.maxConsecutiveTestLoops`)
+- **Hourly Rate Limiting**: Configurable max calls per hour (`workflowKit.maxCallsPerHour`, default: 100)
 - **API Limit Handling**: User prompt to wait or exit when rate limit reached (with countdown timer)
-- **Execution Timeout**: Configurable timeout per loop (`yoke.executionTimeout`, default: 15 minutes)
+- **Execution Timeout**: Configurable timeout per loop (`workflowKit.executionTimeout`, default: 15 minutes)
 
 ### Changed
-- Renamed project to "Yoke AntiGravity" (capital A and G)
+- Renamed project to "Antigravity Workflow Kit" (capital A and G)
 
 ## [2.9.2] - 2024-12-30
 
 ### Brand & Documentation
-- **New Logo**: Modern, abstract design symbolizing the 'Yoke' concept.
+- **New Logo**: Modern, abstract design symbolizing the 'Workflow Kit' concept.
 - **Documentation Overhaul**: Complete rewrite of README.md with visual badges, star history, and improved layout.
 - **Visual Identity**: Added new banner images and consistent styling.
 
@@ -145,7 +164,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minor stability improvements
 
 ### Known Issues
-- **Autonomous Mode (Yoke)**: Not triggering due to CDP port mismatch between Auto-All handler (ports 9000-9030) and autonomous loop client (ports 9222-9232)
+- **Autonomous Mode (Workflow Kit)**: Not triggering due to CDP port mismatch between Auto-All handler (ports 9000-9030) and autonomous loop client (ports 9222-9232)
 - **Model Switching**: Not executing because autonomous loop never starts
 - **Usage Dashboard**: May show null values
 
@@ -206,7 +225,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Complete rewrite with TypeScript
-- Yoke Autonomous Mode concept
+- Workflow Kit Autonomous Mode concept
 - Status bar with multiple toggles
 - Multi-tab mode for parallel development
 
@@ -231,7 +250,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 |---------|--------|-------|
 | Auto-All Mode | ✅ Working | Uses main_scripts/cdp-handler.js |
 | Multi-Tab Mode | ✅ Working | Requires Auto-All enabled |
-| Status Bar | ✅ Working | 4 items: Auto-All, Multi-Tab, Yoke, Settings |
+| Status Bar | ✅ Working | 4 items: Auto-All, Multi-Tab, Workflow Kit, Settings |
 | Dashboard | ✅ Working | UI functional, usage display, settings persist |
 | Autonomous Loop | ✅ Working | Continuous AI development with model switching |
 | Model Switching | ✅ Working | Task-based automatic selection |

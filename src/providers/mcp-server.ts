@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - MCP Server Implementation
+ * Antigravity Workflow Kit - MCP Server Implementation
  * Implements Model Context Protocol for AI tool communication
  * @module providers/mcp-server
  */

@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - Rate Limiter
+ * Antigravity Workflow Kit - Rate Limiter
  * Configurable rate limiting with hourly tracking
  * Inspired by Ralph Claude Code
  * @module core/rate-limiter
@@ -122,7 +122,7 @@ export class RateLimiter {
             vscode.window.withProgress(
                 {
                     location: vscode.ProgressLocation.Notification,
-                    title: 'Yoke AntiGravity: Waiting for rate limit reset',
+                    title: 'Antigravity Workflow Kit: Waiting for rate limit reset',
                     cancellable: true,
                 },
                 async (progress, token) => {

@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Antigravity Usage Provider
+ * Antigravity Workflow Kit - Antigravity Usage Provider
  * Fetches usage quotas from local language server API
  * @module providers/antigravity-usage
  */
@@ -196,7 +196,7 @@ export class AntigravityUsageProvider {
             const body = JSON.stringify({
                 metadata: {
                     ideName: 'antigravity',
-                    extensionName: 'yoke',
+                    extensionName: 'workflowKit',
                     ideVersion: 'unknown',
                     locale: 'en',
                 },

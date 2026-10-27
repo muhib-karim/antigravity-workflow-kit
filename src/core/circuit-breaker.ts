@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Circuit Breaker
+ * Antigravity Workflow Kit - Circuit Breaker
  * Prevents runaway loops that waste credits
  * Based on Michael Nygard's "Release It!" pattern
  * @module core/circuit-breaker

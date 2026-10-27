@@ -1,6 +1,6 @@
 # Fix Plan - Dashboard UI Enhancements
 
-> This file is read by Yoke Autonomous Mode to determine what to work on next.
+> This file is read by Workflow Kit Autonomous Mode to determine what to work on next.
 
 ## UI Tasks
 

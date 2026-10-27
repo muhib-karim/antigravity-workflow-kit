@@ -1,5 +1,5 @@
 /**
- * Yoke Antigravity - Exit Detector
+ * Antigravity Workflow Kit - Exit Detector
  * Detects when autonomous loop should exit
  * @module core/exit-detector
  */

@@ -1,5 +1,5 @@
 /**
- * Yoke AntiGravity - AI Code Reviewer
+ * Antigravity Workflow Kit - AI Code Reviewer
  * Automated security and quality review for AI-generated code
  * @module core/code-reviewer
  */
@@ -419,10 +419,10 @@ export class CodeReviewer {
 
             const diagnostic = new vscode.Diagnostic(
                 range,
-                `[Yoke] ${issue.message}`,
+                `[Workflow Kit] ${issue.message}`,
                 severityMap[issue.severity]
             );
-            diagnostic.source = 'Yoke CodeReviewer';
+            diagnostic.source = 'Workflow Kit CodeReviewer';
             diagnostic.code = issue.rule;
 
             diagnostics.push(diagnostic);
