@@ -15,6 +15,7 @@ esbuild.config.js
 .eslintrc.json
 .prettierrc
 CONTRIBUTING.md
+README.md
 out/**
 extension.js
 vitest.config.ts
