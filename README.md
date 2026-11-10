@@ -8,7 +8,7 @@
   [![CI](https://github.com/muhib-karim/antigravity-workflow-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/muhib-karim/antigravity-workflow-kit/actions/workflows/ci.yml)
   [![Open VSX](https://img.shields.io/open-vsx/v/ai-dev-2024/antigravity-workflow-kit?style=flat-square&label=Open%20VSX&color=success)](https://open-vsx.org/extension/ai-dev-2024/antigravity-workflow-kit)
 
-  [Features](#features) • [Install](#install) • [Usage](#usage) • [Architecture](#architecture) • [Testing](#testing) • [Limitations](#limitations--roadmap)
+  [Quickstart](#quickstart) • [Features](#features) • [Safety model](#safety-model) • [Usage](#usage) • [Architecture](#architecture) • [Development](#development) • [Limitations](#limitations)
 </div>
 
 ---
@@ -17,65 +17,101 @@
 
 **Antigravity Workflow Kit** is a VS Code–compatible extension written in TypeScript for the
 [Antigravity](https://antigravity.google/) AI editor. It connects to the editor's own UI over the
-**Chrome DevTools Protocol (CDP)** and clicks the *Accept / Run* buttons on AI-proposed file edits and terminal
-commands for you. Commands that match a configurable deny-list are never auto-accepted. On top of that it adds an
-experimental **autonomous loop**. The loop reads the next task from a `@fix_plan.md` checklist, picks a model for
-the kind of task, and stops itself through a circuit breaker and exit detector when it stops making progress.
+**Chrome DevTools Protocol (CDP)** and clicks the approval buttons (*Accept*, *Run*, *Apply*, …) on AI-proposed
+file edits and terminal commands for you. An approval whose command matches a deny-list is left for you to click.
+On top of that it adds an experimental **autonomous loop**: it sends the next unchecked item of a `@fix_plan.md`
+checklist to the chat, waits for the response, and stops itself through a circuit breaker and an exit detector
+when it stops making progress.
 
 The extension is published on Open VSX as
 [`ai-dev-2024.antigravity-workflow-kit`](https://open-vsx.org/extension/ai-dev-2024/antigravity-workflow-kit).
 
-## Features
+## Quickstart
 
-All of these are implemented in this repository:
+1. **Install.** Search for **"Antigravity Workflow Kit"** in Antigravity's Extensions view, or open the
+   [Open VSX page](https://open-vsx.org/extension/ai-dev-2024/antigravity-workflow-kit). A `.vsix` from
+   [GitHub Releases](https://github.com/muhib-karim/antigravity-workflow-kit/releases) can be installed with
+   `Ctrl/Cmd+Shift+P` → **Extensions: Install from VSIX…**
+2. **Turn it on.** Click **Workflow Kit: OFF** in the status bar (or run *Workflow Kit: Toggle Extension ON/OFF*).
+   Auto-accept needs the editor to run with a remote-debugging port. If it does not, the extension offers
+   **Setup & Restart**, which adds `--remote-debugging-port=9000` to your Antigravity shortcut and relaunches it.
+   Read the [safety model](#safety-model) before you accept.
+3. **Check the deny-list.** Review `workflowKit.bannedCommands` in Settings and add what you never want auto-run.
+4. **Optional: the autonomous loop (beta).** Put a checklist in `@fix_plan.md` at the workspace root (the one in
+   this repository is an example) and run *Workflow Kit: Toggle Autonomous Loop*.
 
-| Area | What it does | Where |
-|------|--------------|-------|
-| **Auto-All** | Detects Antigravity's CDP endpoint (ports 9000–9010) and offers to relaunch the editor with `--remote-debugging-port` if needed. Injects a script that auto-accepts edits and commands | `main_scripts/cdp-handler.js`, `main_scripts/relauncher.js`, `src/extension.ts` |
-| **Banned commands** | Deny-list (`workflowKit.bannedCommands`) plus built-in destructive-pattern checks (`rm -rf /`, `dd … of=/dev/…`, `format c:` …) | `src/core/code-reviewer.ts` |
-| **Multi-Tab** | Rotates across conversation tabs, with a background overlay | `main_scripts/` |
-| **Autonomous loop** *(beta)* | Works through unchecked `- [ ]` items in `@fix_plan.md`, with a rate limiter (max calls/hour), per-loop timeout and max loops per session | `src/core/autonomous-loop.ts`, `rate-limiter.ts` |
-| **Circuit breaker** | CLOSED → HALF_OPEN → OPEN on repeated no-progress or identical responses. Stays open until manually reset | `src/core/circuit-breaker.ts` |
-| **Exit detection** | Stops on completion phrases, response stagnation or 3 consecutive failures | `src/core/exit-detector.ts`, `test-loop-detector.ts` |
-| **Model routing** | Keyword-based task classification (reasoning / frontend / quick / general) mapped to configurable preferred models | `src/core/task-analyzer.ts`, `model-selector.ts` |
-| **Code review** | 20 regex rules (security, quality, performance, bug patterns) with a score, surfaced as VS Code diagnostics | `src/core/code-reviewer.ts` |
-| **MCP-style tools** | In-process registry of 10 tools (file read/write/list/search, terminal, workspace info, editors, diagnostics, git status/diff) | `src/providers/mcp-server.ts` |
-| **Multi-agent orchestration** | 5 agent roles: researcher, implementer, reviewer, tester, planner | `src/core/agent-orchestrator.ts` |
-| **Extras** | Session memory, test-file generator, Jira/GitHub issue sync, Slack/Discord/webhook notifications, voice commands (needs the VS Code Speech extension), custom model providers (Anthropic, Google, OpenAI, Ollama) | `src/core/`, `src/providers/`, `src/ui/` |
-| **Dashboard** | Webview settings panel with feature toggles, model preferences and session stats | `src/ui/dashboard.ts`, `src/settings-panel.ts` |
-
-### Demo
-
-Background mode overlay showing progress per conversation tab (screenshot from an earlier release of the extension):
-
-<img src="media/background-mode.png" alt="Background mode overlay in Antigravity" width="100%" />
-
-Unit test run, rendered from real terminal output:
-
-<img src="docs/test-run.svg" alt="vitest output: 8 test files, 54 tests passed" width="720" />
-
-## Install
-
-**From Open VSX:** search for **"Antigravity Workflow Kit"** in Antigravity's Extensions view, or open the
-[Open VSX page](https://open-vsx.org/extension/ai-dev-2024/antigravity-workflow-kit).
-
-**From a VSIX:** download a `.vsix` from [GitHub Releases](https://github.com/muhib-karim/antigravity-workflow-kit/releases).
-Then run `Ctrl/Cmd+Shift+P` → **Extensions: Install from VSIX…**
-
-**From source** (Node.js 20+):
+From source you need **Node.js 22.12 or newer**:
 
 ```bash
 git clone https://github.com/muhib-karim/antigravity-workflow-kit.git
 cd antigravity-workflow-kit
 npm ci
 npm run compile      # esbuild bundle -> dist/extension.js
-npm run package      # produces antigravity-workflow-kit-<version>.vsix (uses docs/MARKETPLACE.md as its README)
+npm run package      # antigravity-workflow-kit-<version>.vsix (uses docs/MARKETPLACE.md as its README)
 ```
+
+## Features
+
+| Area | What it does | Where |
+|------|--------------|-------|
+| **Auto-All** | Finds Antigravity's CDP endpoint on ports 9000–9010, offers to relaunch the editor with `--remote-debugging-port` if there is none, and injects a script that clicks approval buttons | `main_scripts/cdp-handler.js`, `main_scripts/relauncher.js`, `main_scripts/full_cdp_script.js`, `src/extension.ts` |
+| **Banned commands** | Deny-list (`workflowKit.bannedCommands`) plus built-in destructive patterns, checked before any approval button is clicked. See [Safety model](#safety-model) | `main_scripts/banned-commands.js` (also used by `src/core/code-reviewer.ts`) |
+| **Multi-Tab** | Rotates across conversation tabs, with a background overlay | `main_scripts/full_cdp_script.js` |
+| **Autonomous loop** *(beta)* | Sends the first unchecked `- [ ]` item of `@fix_plan.md` (or a goal) to the chat each iteration, with a call limit per hour, a per-loop timeout and a maximum number of loops | `src/core/autonomous-loop.ts`, `rate-limiter.ts`, `src/providers/cdp-client.ts` |
+| **Circuit breaker** | CLOSED → HALF_OPEN → OPEN after 3 loops without file changes, 5 consecutive errors or 5 repeated responses. The loop then tries up to 3 recovery strategies, resetting the breaker each time, and stops when they are used up | `src/core/circuit-breaker.ts`, `recovery-strategies.ts` |
+| **Exit detection** | Stops on completion phrases, a response repeated 3 times, 3 consecutive failures, or several test-only loops in a row | `src/core/exit-detector.ts`, `test-loop-detector.ts` |
+| **Model routing** | Keyword-based task classification (reasoning / frontend / quick / general) mapped to configurable preferred models. The choice is shown in a notification; selecting it in the editor's model picker is not wired up yet | `src/core/task-analyzer.ts`, `model-selector.ts` |
+| **Code review** | 20 regex rules (security, quality, performance, bug patterns) with a score, shown as diagnostics for the current file | `src/core/code-reviewer.ts` |
+| **Test generator** | Writes a test-file skeleton for the current file | `src/core/test-generator.ts` |
+| **Project sync** | Pulls open GitHub issues or Jira tickets into `@fix_plan.md` (configured in `.workflow-kit/project-manager.json`) | `src/providers/project-manager.ts` |
+| **Dashboard** | Webview with the main toggles, model preferences, loop settings and session stats | `src/ui/dashboard.ts` |
+
+**Scaffolds, not features yet.** These modules exist and have commands or dashboard toggles, but nothing connects
+them to the agent or the loop: the MCP-style tool registry (`src/providers/mcp-server.ts`, in-process only), the
+multi-agent orchestrator (`src/core/agent-orchestrator.ts`, task execution is a placeholder), voice commands
+(`src/ui/voice-controller.ts`, a command parser without speech input), notifications
+(`src/core/notification-manager.ts`), session memory (`src/core/memory-manager.ts`) and the custom model
+providers (`src/providers/model-provider.ts`).
+
+Background mode overlay showing progress per conversation tab (screenshot from an earlier release):
+
+<img src="media/background-mode.png" alt="Background mode overlay in Antigravity" width="100%" />
+
+## Safety model
+
+Auto-accept means the AI's edits and terminal commands run without you reading them first. The deny-list is a
+safety net, not a sandbox.
+
+**What is checked.** Before clicking any approval button, the injected script reads the code block next to it and
+skips the button when the text matches:
+
+- an entry of `workflowKit.bannedCommands`. Entries match regardless of case, whitespace and quoting, anywhere in
+  the text, so the default `rm -rf /` also stops `sudo rm  -rf "/tmp/x"`. An entry written as `/pattern/flags` is
+  a regular expression;
+- a built-in destructive pattern, which applies whatever the list contains: recursive `rm` of an absolute or home
+  path in any flag spelling or order (`rm -fr /`, `rm -r -f ~`, `rm --recursive --force $HOME`), `dd` writing to
+  `/dev/…`, `format X:`, `del` with `/s`, `/f` or `/q`, and redirects to a block device.
+
+A skipped button stays on screen for you to decide. That includes a file edit whose code block contains a banned
+string.
+
+**What is not.**
+
+- If no command text can be found next to a *Run* button (for example after an Antigravity UI change), the button
+  **is still clicked**. This is logged and counted as `unverified` in the auto-accept stats.
+- The matcher only sees the text shown in the editor. It cannot see through aliases, scripts, `eval`, encoded
+  payloads or a destructive command it has no pattern for.
+- Buttons are recognised by their label (`accept`, `run`, `retry`, `apply`, `execute`, `confirm`, `allow`), in
+  every page the debugging port exposes on ports 9000–9010.
+- The remote-debugging port is unauthenticated: while it is open, any local process can drive the editor.
+  **Setup & Restart** changes your Antigravity shortcut so the port stays enabled on later launches.
+
+See [SECURITY.md](SECURITY.md) for how to report a vulnerability and for the full list of things to know.
 
 ## Usage
 
-Status bar items toggle **Auto-All**, **Multi-Tab** and the **autonomous loop**. The ⚙️ item opens the dashboard.
-All commands are also available from the Command Palette:
+The status bar has one **Workflow Kit: ON/OFF** item, which toggles auto-accept and shows the loop counter while
+the autonomous loop runs, and a ⚙️ item that opens the dashboard. Everything is also in the Command Palette:
 
 | Command | ID |
 |---------|----|
@@ -84,16 +120,17 @@ All commands are also available from the Command Palette:
 | Workflow Kit: Toggle Multi-Tab Mode | `workflowKit.toggleMultiTab` |
 | Workflow Kit: Toggle Autonomous Loop | `workflowKit.toggleAutopilotMode` |
 | Workflow Kit: Open Dashboard | `workflowKit.openSettings` |
-| Workflow Kit: Toggle MCP Server | `workflowKit.toggleMcp` |
-| Workflow Kit: Toggle Voice Control | `workflowKit.toggleVoice` |
-| Workflow Kit: Generate Tests for Current File | `workflowKit.generateTests` |
 | Workflow Kit: Run Code Review | `workflowKit.runCodeReview` |
-| Workflow Kit: Start Multi-Agent Task | `workflowKit.startMultiAgent` |
-| Workflow Kit: Show Session Memory | `workflowKit.showMemory` |
+| Workflow Kit: Generate Tests for Current File | `workflowKit.generateTests` |
 | Workflow Kit: Sync Project Tasks (Jira/GitHub) | `workflowKit.syncProjectTasks` |
+| Workflow Kit: Show Session Memory | `workflowKit.showMemory` |
+| Workflow Kit: Toggle MCP Server *(scaffold)* | `workflowKit.toggleMcp` |
+| Workflow Kit: Toggle Voice Control *(scaffold)* | `workflowKit.toggleVoice` |
+| Workflow Kit: Start Multi-Agent Task *(scaffold)* | `workflowKit.startMultiAgent` |
 
-**Autonomous loop:** put a checklist in `@fix_plan.md` at the workspace root (see the one in this repo for an
-example). Then toggle the loop. Each iteration takes the first `- [ ]` item.
+**Autonomous loop.** Each iteration takes the first `- [ ]` item of `@fix_plan.md` and sends it as a prompt. The
+loop does not tick items itself; the model is expected to check the box when the task is done. With no
+`@fix_plan.md` and no goal, the loop stops immediately.
 
 ### Key settings
 
@@ -101,11 +138,16 @@ example). Then toggle the loop. Each iteration takes the first `- [ ]` item.
 |---------|---------|-------------|
 | `workflowKit.autoAllEnabled` | `false` | Auto-accept file edits and commands |
 | `workflowKit.multiTabEnabled` | `false` | Work across all conversation tabs |
-| `workflowKit.autopilotModeEnabled` | `false` | Autonomous loop with model selection |
-| `workflowKit.bannedCommands` | `rm -rf /`, `rm -rf ~`, `format c:`, `del /f /s /q` | Never auto-executed |
-| `workflowKit.maxCallsPerHour` | `100` | Rate limit for the loop |
-| `workflowKit.maxLoopsPerSession` | `100` | Loop stops after this many iterations |
+| `workflowKit.bannedCommands` | `rm -rf /`, `rm -rf ~`, `format c:`, `del /f /s /q` | Never auto-accepted (see [Safety model](#safety-model)) |
+| `workflowKit.pollFrequency` | `1000` | Auto-accept polling interval in ms |
+| `workflowKit.autopilotModeEnabled` | `false` | Autonomous loop |
+| `workflowKit.maxLoopsPerSession` | `100` | The loop stops after this many iterations |
 | `workflowKit.loopInterval` | `30` | Seconds between iterations |
+| `workflowKit.maxCallsPerHour` | `100` | Prompts per hour before the loop asks whether to wait |
+| `workflowKit.executionTimeout` | `15` | Minutes to wait for one response |
+| `workflowKit.maxConsecutiveTestLoops` | `3` | Stop after this many test-only responses in a row |
+| `workflowKit.autoGitCommit` | `false` | `git add -A && git commit` every 10 loops |
+| `workflowKit.autoSwitchModels` | `true` | Classify each task and pick a preferred model |
 | `workflowKit.preferredModelForReasoning` | `claude-opus-4.5-thinking` | Model for debugging / architecture tasks |
 | `workflowKit.preferredModelForFrontend` | `gemini-3-pro-high` | Model for UI tasks |
 | `workflowKit.preferredModelForQuick` | `gemini-3-flash` | Model for small tasks |
@@ -116,101 +158,120 @@ The full list is in `package.json` under `contributes.configuration`.
 
 ```mermaid
 flowchart LR
-    subgraph Ext["Extension host (src/extension.ts)"]
+    subgraph Ext["Extension host (dist/extension.js, bundled from src/)"]
         UI["Status bar + Dashboard<br/>src/ui"]
         Loop["Autonomous loop<br/>core/autonomous-loop"]
-        Guard["Circuit breaker · Exit detector<br/>Rate limiter · Test-loop detector"]
+        Guard["Circuit breaker · Recovery<br/>Exit detector · Rate limiter"]
         Route["Task analyzer → Model selector"]
-        Review["Code reviewer<br/>(banned commands, 20 rules)"]
-        Tools["MCP-style tools · Agents · Memory<br/>Notifications · Project sync"]
+        Client["CDP client<br/>providers/cdp-client"]
+        Tools["Code review · Test generator<br/>Project sync · scaffolds"]
     end
-    subgraph CDP["main_scripts (Node, CommonJS)"]
+    subgraph Scripts["main_scripts (plain JS, loaded at runtime)"]
         Handler["cdp-handler.js"]
         Relaunch["relauncher.js"]
-        Inject["full_cdp_script.js<br/>(injected into editor UI)"]
+        Inject["banned-commands.js +<br/>full_cdp_script.js<br/>(injected into the editor UI)"]
     end
     Plan[("@fix_plan.md")]
     AG["Antigravity editor UI<br/>--remote-debugging-port 9000"]
 
     UI --> Loop
+    UI --> Tools
     Plan --> Loop
     Loop --> Route
     Loop --> Guard
-    Loop --> Review
-    UI --> Tools
-    Ext --> Handler
-    Relaunch -. restarts with CDP flag .-> AG
-    Handler -- WebSocket / CDP --> AG
+    Loop --> Client
+    Client -- "prompt in, response out (WebSocket / CDP)" --> AG
+    UI --> Handler
+    Handler -- "WebSocket / CDP" --> AG
     Handler --> Inject
-    Inject -- click Accept / Run --> AG
+    Inject -- "click Accept / Run unless banned" --> AG
+    Relaunch -. "restarts with the CDP flag" .-> AG
 ```
 
 - **`src/`** is TypeScript, bundled by esbuild into `dist/extension.js`. `vscode` is kept external.
-- **`main_scripts/`** holds plain JavaScript loaded at runtime with `require()`. It finds the CDP endpoint, relaunches
-  the editor with the debugging flag, and injects the auto-accept script into the editor's webviews.
+- **`main_scripts/`** holds plain JavaScript that the extension loads with `require()` at runtime:
+  `cdp-handler.js` (finds the CDP endpoint, connects with [`ws`](https://github.com/websockets/ws), injects the
+  auto-accept script), `relauncher.js` (restarts the editor with the debugging flag) and `banned-commands.js`
+  (the deny-list matcher). The VSIX therefore ships `main_scripts/` and `node_modules/ws/` next to the bundle;
+  `.vscodeignore` is an allow-list and `tests/unit/packaging.test.ts` checks the result.
+- There are two CDP connections: `cdp-handler.js` for auto-accept, and `src/providers/cdp-client.ts` for the
+  autonomous loop, which types the prompt into the chat and reads the last response.
 - Configuration is read through a typed singleton (`src/utils/config.ts`) backed by `DEFAULT_CONFIG` in
   `src/utils/constants.ts`.
 
-## Testing
+## Development
+
+Requires Node.js 22.12 or newer (the test runner and `vsce` need it).
 
 ```bash
 npm ci
-npm run lint        # ESLint (typescript-eslint recommended; style rules reported as warnings)
-npm run typecheck   # tsc --noEmit, strict mode
-npm test            # vitest: 54 tests in 8 files
-npm run compile     # esbuild bundle
+npm run lint            # ESLint (typescript-eslint recommended)
+npm run typecheck       # tsc --noEmit, strict mode
+npm test                # vitest
+npm run test:coverage   # vitest with a v8 coverage report
+npm run compile         # esbuild bundle
+npm run package         # VSIX
 ```
 
-Tests live in `tests/`. A small mock of the `vscode` API is in `tests/mocks/vscode.ts`.
+Tests live in `tests/`:
 
-- `tests/unit/*.test.ts` import the real modules from `src/`: circuit breaker state machine, exit detector,
-  task analyzer and model selector, code reviewer and banned-command checks. One manifest test checks that every
-  command in `package.json` is registered in `src/extension.ts`, that setting defaults match `DEFAULT_CONFIG`, and
-  that every selectable model ID has a display label.
-- `tests/*.test.ts` are older specification-style tests that model the intended behaviour inline.
+- `tests/unit/*.test.ts` run the real modules. The autonomous loop is driven end to end with a mocked editor and
+  a mocked `git`; the injected auto-accept script runs in a `vm` context with a small fake DOM; the packaging test
+  inspects what `vsce` would put in the VSIX; the manifest test keeps `package.json`, `src/extension.ts` and
+  `DEFAULT_CONFIG` in step.
+- `tests/mocks/vscode.ts` is a stateful mock of the `vscode` API. Like VS Code, it rejects updates to settings
+  that `package.json` does not declare.
+- `tests/*.test.ts` are older specification-style tests that model the intended behaviour inline rather than
+  importing `src/`.
 
-CI (`.github/workflows/ci.yml`) runs lint, type check, tests, build and VSIX packaging on Node 20 and 22 for every
-push and pull request to `master`.
+CI (`.github/workflows/ci.yml`) runs lint, type check, tests with coverage, build, packaging, a smoke test that
+loads the CDP handler from the built VSIX and a production-dependency audit on Node 22 and 24, plus a gitleaks
+scan, for every push to `master` and every pull request. `release.yml` runs the same gates when a `v*` tag is
+pushed, then creates the GitHub Release and publishes.
 
 ## Project structure
 
 ```
 ├── src/
 │   ├── extension.ts          # activation, command registration, CDP wiring
-│   ├── settings-panel.ts     # settings webview
-│   ├── core/                 # loop, circuit breaker, exit/test-loop detection, rate limiting,
-│   │                         # task analysis, model selection, code review, agents, memory, test generator
-│   ├── providers/            # CDP client, MCP-style tools, model providers, usage scraping, Jira/GitHub sync
-│   ├── ui/                   # dashboard, status bar, styles, voice controller
+│   ├── core/                 # loop, circuit breaker, recovery, exit/test-loop detection, rate limiting,
+│   │                         # task analysis, model selection, code review, test generator, scaffolds
+│   ├── providers/            # CDP client, project sync, usage meters, scaffolds
+│   ├── ui/                   # dashboard, status bar, styles, voice scaffold
 │   └── utils/                # config, constants, logger
-├── main_scripts/             # runtime CDP handler, relauncher, injected auto-accept scripts
+├── main_scripts/             # runtime CDP handler, relauncher, deny-list matcher, injected auto-accept script
 ├── tests/                    # vitest suites + vscode mock
 ├── media/                    # icon and screenshots
-├── docs/                     # banner, README assets, MARKETPLACE.md (README packaged into the VSIX)
-├── out/, extension.js        # legacy build output from earlier versions (not used by package.json "main")
-└── .github/workflows/        # ci.yml, ci-cd.yml, release.yml
+├── docs/                     # banner, MARKETPLACE.md (the README packaged into the VSIX)
+├── out/, extension.js        # legacy build output from earlier versions (not used, not packaged)
+└── .github/                  # ci.yml, release.yml, dependabot.yml
 ```
 
-## Limitations & roadmap
+## Limitations
 
-- **Depends on Antigravity's internal UI.** Auto-accept works by finding buttons in the editor's DOM over CDP, so
-  Antigravity UI updates can break it. It also requires the editor to run with a remote-debugging port, which the
-  extension offers to set up by relaunching.
-- **The autonomous loop is beta.**
-- **Use auto-accept with care.** The banned-command list is a safety net, not a sandbox. Review what the AI is
-  allowed to run.
-- Many advanced modules (memory, agents, project sync, voice, notifications) have no automated tests yet. Next
-  steps: extend unit coverage to `rate-limiter`, `recovery-strategies` and `memory-manager`, convert the older
-  specification-style tests to import the real modules, and remove the legacy `out/` build output.
+- **Depends on Antigravity's internal UI.** Buttons, the chat input and responses are found through DOM selectors
+  over CDP, so an Antigravity update can break auto-accept or the autonomous loop without warning.
+- **The autonomous loop is beta.** It measures progress as files changed according to `git diff --name-only`, so
+  it needs a git repository, and a loop that commits everything it changes looks like no progress.
+- **Use auto-accept with care.** See the [safety model](#safety-model).
+- **Usage meters in the dashboard are Windows-only**; they are read from the local Antigravity language server
+  with `wmic` and `netstat`.
+- The scaffold modules listed under [Features](#features) have no automated tests and are not connected to the
+  agent.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Please run `npm run lint && npm run typecheck && npm test` before opening a PR.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Please run `npm run lint && npm run typecheck && npm test` before opening
+a PR, and add a regression test with every fix.
+
+## Security
+
+See [SECURITY.md](SECURITY.md).
 
 ## Tech stack
 
-- **Language:** TypeScript
-- **Frameworks and tools:** TypeScript, Vitest, WebSocket (ws), esbuild
+- **Language:** TypeScript, plus plain JavaScript for the injected and runtime-loaded scripts
+- **Tools:** esbuild, Vitest, ESLint, WebSocket (`ws`)
 - **CI:** GitHub Actions
 
 ## License

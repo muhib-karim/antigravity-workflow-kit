@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An approval whose nearby code block matches the deny-list is left for you to click, including file edits. A Run/Execute button with no readable command text next to it is still clicked, and is now logged and counted as `unverified` in the auto-accept stats.
 
 ### Added
+- `SECURITY.md`: how to report a vulnerability, and what the remote-debugging port, auto-accept, the deny-list, the autonomous loop and project sync mean for your machine.
+- README: quickstart, a safety-model section that says exactly what the deny-list matches and what it does not, an updated architecture diagram, and corrections (Node.js 22.12+ rather than 20+, one status-bar toggle rather than three, how the circuit breaker and recovery interact, which modules are scaffolds that are not connected to the agent). `docs/MARKETPLACE.md` and `CONTRIBUTING.md` are corrected the same way. The stale test-run image is removed.
 - Unit tests against the real `src/core` modules and a manifest consistency test (54 tests total).
 
 ---
