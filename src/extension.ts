@@ -66,7 +66,7 @@ export function activate(context: vscode.ExtensionContext): void {
     relauncher = null;
     try {
         const cdpHandlerPath = path.join(context.extensionPath, 'main_scripts', 'cdp-handler.js');
-        // eslint-disable-next-line @typescript-eslint/no-var-requires -- plain JS loaded from the installed extension folder at runtime
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- plain JS loaded from the installed extension folder at runtime
         const { CDPHandler } = require(cdpHandlerPath);
 
         const handler: CdpHandler = new CDPHandler(CDP_PORT_MIN, CDP_PORT_MAX, log.info.bind(log));
@@ -99,7 +99,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // The relauncher is only needed to offer a restart with the remote-debugging port.
     try {
         const relauncherPath = path.join(context.extensionPath, 'main_scripts', 'relauncher.js');
-        // eslint-disable-next-line @typescript-eslint/no-var-requires -- plain JS loaded from the installed extension folder at runtime
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- plain JS loaded from the installed extension folder at runtime
         const { Relauncher } = require(relauncherPath);
         relauncher = new Relauncher(log.info.bind(log));
     } catch (err) {
