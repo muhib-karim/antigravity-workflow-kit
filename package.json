@@ -180,7 +180,10 @@
                         "format c:",
                         "del /f /s /q"
                     ],
-                    "description": "Commands to block from auto-execution"
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Commands that are never auto-accepted. Entries match case-, whitespace- and quote-insensitively; /pattern/flags entries are regular expressions. Built-in destructive patterns (recursive rm of / or ~, dd to a device, format, del /s /f /q) always apply."
                 },
                 "workflowKit.maxCallsPerHour": {
                     "type": "number",

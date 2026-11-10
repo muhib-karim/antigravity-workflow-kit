@@ -19,6 +19,7 @@
             return {
                 clicksThisSession: 0,
                 blockedThisSession: 0,
+                unverifiedCommandsThisSession: 0,
                 sessionStartTime: null,
                 fileEditsThisSession: 0,
                 terminalCommandsThisSession: 0,
@@ -73,6 +74,12 @@
             const stats = getStatsMutable();
             stats.blockedThisSession++;
             log(`[Stats] Blocked. Total: ${stats.blockedThisSession}`);
+        }
+
+        function trackUnverified(log) {
+            const stats = getStatsMutable();
+            stats.unverifiedCommandsThisSession = (stats.unverifiedCommandsThisSession || 0) + 1;
+            log(`[Stats] Unverified command click. Total: ${stats.unverifiedCommandsThisSession}`);
         }
 
         function collectROI(log) {
@@ -149,6 +156,7 @@
                 if (s.isWindowFocused === undefined) s.isWindowFocused = true;
                 if (s.fileEditsThisSession === undefined) s.fileEditsThisSession = 0;
                 if (s.terminalCommandsThisSession === undefined) s.terminalCommandsThisSession = 0;
+                if (s.unverifiedCommandsThisSession === undefined) s.unverifiedCommandsThisSession = 0;
             }
 
             initializeFocusState(log);
@@ -176,6 +184,7 @@
             initialize,
             trackClick,
             trackBlocked,
+            trackUnverified,
             categorizeClick,
             ActionType,
             collectROI,
@@ -543,7 +552,7 @@
             commandText += ' ' + el.getAttribute('title');
         }
 
-        const result = commandText.trim().toLowerCase();
+        const result = commandText.trim();
         if (result.length > 0) {
             log(`[BannedCmd] Extracted command text (${result.length} chars): "${result.substring(0, 150)}..."`);
         }
@@ -551,53 +560,27 @@
     }
 
     function isCommandBanned(commandText) {
-        const state = window.__autoAllState;
-        const bannedList = state.bannedCommands || [];
-
-        if (bannedList.length === 0) return false;
         if (!commandText || commandText.length === 0) return false;
 
-        const lowerText = commandText.toLowerCase();
+        const matcher = window.__workflowKitBannedCommands;
+        if (!matcher) {
+            // banned-commands.js is injected together with this script. Without it nothing can be
+            // checked, so refuse rather than click blindly.
+            log('[BANNED] Deny-list matcher is missing - refusing to click');
+            return true;
+        }
 
-        for (const banned of bannedList) {
-            const pattern = banned.trim();
-            if (!pattern || pattern.length === 0) continue;
-
-            try {
-                
-                if (pattern.startsWith('/') && pattern.lastIndexOf('/') > 0) {
-                    
-                    const lastSlash = pattern.lastIndexOf('/');
-                    const regexPattern = pattern.substring(1, lastSlash);
-                    const flags = pattern.substring(lastSlash + 1) || 'i'; 
-
-                    const regex = new RegExp(regexPattern, flags);
-                    if (regex.test(commandText)) {
-                        log(`[BANNED] Command blocked by regex: /${regexPattern}/${flags}`);
-                        Analytics.trackBlocked(log);
-                        return true;
-                    }
-                } else {
-                    
-                    const lowerPattern = pattern.toLowerCase();
-                    if (lowerText.includes(lowerPattern)) {
-                        log(`[BANNED] Command blocked by pattern: "${pattern}"`);
-                        Analytics.trackBlocked(log);
-                        return true;
-                    }
-                }
-            } catch (e) {
-                
-                log(`[BANNED] Invalid regex pattern "${pattern}", using literal match: ${e.message}`);
-                if (lowerText.includes(pattern.toLowerCase())) {
-                    log(`[BANNED] Command blocked by pattern (fallback): "${pattern}"`);
-                    Analytics.trackBlocked(log);
-                    return true;
-                }
-            }
+        const verdict = matcher.check(commandText, window.__autoAllState.bannedCommands);
+        if (verdict.blocked) {
+            log(`[BANNED] ${verdict.reason}`);
+            Analytics.trackBlocked(log);
+            return true;
         }
         return false;
     }
+
+    // Command buttons that were let through although no command text could be found next to them.
+    const unverifiedCommandButtons = new WeakSet();
 
     function isAcceptButton(el) {
         const text = (el.textContent || "").trim().toLowerCase();
@@ -609,12 +592,20 @@
 
         const isCommandButton = text.includes('run command') || text.includes('execute') || text.includes('run');
 
-        if (isCommandButton) {
-            const nearbyText = findNearbyCommandText(el);
-            if (isCommandBanned(nearbyText)) {
-                log(`[BANNED] Skipping button: "${text}" - command is banned`);
-                return false;
-            }
+        // Every approval button is checked, not only "Run"/"Execute": command prompts are also
+        // labelled Accept / Allow / Confirm / Apply / Retry.
+        const nearbyText = findNearbyCommandText(el);
+        if (isCommandBanned(nearbyText)) {
+            log(`[BANNED] Skipping button: "${text}" - command is banned`);
+            return false;
+        }
+
+        // A command button with no readable command next to it cannot be checked. It is still
+        // clicked (the editor's DOM may simply have changed), but performClick logs and counts it.
+        if (isCommandButton && nearbyText.length === 0) {
+            unverifiedCommandButtons.add(el);
+        } else {
+            unverifiedCommandButtons.delete(el);
         }
 
         const style = window.getComputedStyle(el);
@@ -657,6 +648,11 @@
             if (isAcceptButton(el)) {
                 const buttonText = (el.textContent || "").trim();
                 log(`Clicking: "${buttonText}"`);
+
+                if (unverifiedCommandButtons.has(el)) {
+                    log(`[BANNED] No command text found near "${buttonText}" - clicking without a deny-list check`);
+                    Analytics.trackUnverified(log);
+                }
 
                 el.dispatchEvent(new MouseEvent('click', { view: window, bubbles: true, cancelable: true }));
                 clicked++;
@@ -791,7 +787,9 @@
 
     window.__autoAllUpdateBannedCommands = function (bannedList) {
         const state = window.__autoAllState;
-        state.bannedCommands = Array.isArray(bannedList) ? bannedList : [];
+        const matcher = window.__workflowKitBannedCommands;
+        // toList() also accepts a single string and drops entries that are not strings
+        state.bannedCommands = matcher ? matcher.toList(bannedList) : (Array.isArray(bannedList) ? bannedList : []);
         log(`[Config] Updated banned commands list: ${state.bannedCommands.length} patterns`);
         if (state.bannedCommands.length > 0) {
             log(`[Config] Banned patterns: ${state.bannedCommands.join(', ')}`);
@@ -803,6 +801,7 @@
         return {
             clicks: stats.clicksThisSession || 0,
             blocked: stats.blockedThisSession || 0,
+            unverified: stats.unverifiedCommandsThisSession || 0,
             sessionStart: stats.sessionStartTime,
             fileEdits: stats.fileEditsThisSession || 0,
             terminalCommands: stats.terminalCommandsThisSession || 0,
@@ -832,7 +831,7 @@
             const isPro = config.isPro !== false;
             const isBG = config.isBackgroundMode === true;
 
-            if (config.bannedCommands) {
+            if (config.bannedCommands !== undefined) {
                 window.__autoAllUpdateBannedCommands(config.bannedCommands);
             }
 

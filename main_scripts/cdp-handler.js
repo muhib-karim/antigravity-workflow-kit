@@ -167,8 +167,10 @@ class CDPHandler {
     }
 
     getComposedScript() {
-        const scriptPath = path.join(__dirname, '..', 'main_scripts', 'full_cdp_script.js');
-        return fs.readFileSync(scriptPath, 'utf8');
+        // The deny-list matcher has to be defined before the auto-accept script starts clicking.
+        const matcher = fs.readFileSync(path.join(__dirname, 'banned-commands.js'), 'utf8');
+        const script = fs.readFileSync(path.join(__dirname, 'full_cdp_script.js'), 'utf8');
+        return `${matcher}\n${script}`;
     }
 
     sendCommand(pageId, method, params = {}) {
@@ -198,7 +200,7 @@ class CDPHandler {
     }
 
     async getStats() {
-        const aggregatedStats = { clicks: 0, blocked: 0, fileEdits: 0, terminalCommands: 0, actionsWhileAway: 0 };
+        const aggregatedStats = { clicks: 0, blocked: 0, unverified: 0, fileEdits: 0, terminalCommands: 0, actionsWhileAway: 0 };
 
         for (const [pageId] of this.connections) {
             try {
@@ -211,6 +213,7 @@ class CDPHandler {
                     const stats = JSON.parse(result.result.value);
                     aggregatedStats.clicks += stats.clicks || 0;
                     aggregatedStats.blocked += stats.blocked || 0;
+                    aggregatedStats.unverified += stats.unverified || 0;
                     aggregatedStats.fileEdits += stats.fileEdits || 0;
                     aggregatedStats.terminalCommands += stats.terminalCommands || 0;
                     aggregatedStats.actionsWhileAway += stats.actionsWhileAway || 0;
