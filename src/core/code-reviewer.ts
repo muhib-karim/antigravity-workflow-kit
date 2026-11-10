@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { createLogger } from '../utils/logger';
+import bannedCommands = require('../../main_scripts/banned-commands');
 
 const log = createLogger('CodeReviewer');
 
@@ -266,7 +267,7 @@ export class CodeReviewer {
         const issues: ReviewIssue[] = [];
         const lines = code.split('\n');
 
-        log.debug(`Reviewing code: ${lines.length} lines`);
+        log.debug(`Reviewing ${filename ?? 'code'}: ${lines.length} lines`);
 
         // Check each pattern against each line
         for (let i = 0; i < lines.length; i++) {
@@ -432,37 +433,13 @@ export class CodeReviewer {
     }
 
     // ============ Banned Commands Check ============
-    checkBannedCommands(command: string, bannedList: string[]): { blocked: boolean; reason?: string } {
-        const normalizedCommand = command.toLowerCase().trim();
-
-        for (const banned of bannedList) {
-            if (normalizedCommand.includes(banned.toLowerCase())) {
-                return {
-                    blocked: true,
-                    reason: `Command contains banned pattern: ${banned}`
-                };
-            }
-        }
-
-        // Additional safety checks
-        const dangerousPatterns = [
-            /rm\s+-rf?\s+[\/~]/,
-            /format\s+[a-z]:/i,
-            /del\s+\/[sfq]/i,
-            />\s*\/dev\/sd[a-z]/,
-            /dd\s+if=.*of=\/dev/
-        ];
-
-        for (const pattern of dangerousPatterns) {
-            if (pattern.test(normalizedCommand)) {
-                return {
-                    blocked: true,
-                    reason: 'Potentially destructive command detected'
-                };
-            }
-        }
-
-        return { blocked: false };
+    /**
+     * Same matcher the injected auto-accept script uses (main_scripts/banned-commands.js):
+     * the configured deny-list plus the built-in destructive patterns.
+     */
+    checkBannedCommands(command: string, bannedList: unknown): { blocked: boolean; reason?: string } {
+        const verdict = bannedCommands.check(command, bannedList);
+        return verdict.blocked ? { blocked: true, reason: verdict.reason } : { blocked: false };
     }
 }
 

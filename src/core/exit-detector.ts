@@ -9,6 +9,9 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('ExitDetector');
 
+// Words that turn a completion phrase into a negation or a condition when they precede it in the same clause
+const NOT_A_COMPLETION = /\b(?:not|never|no longer|yet to|far from|once|when|whenever|until|unless|if|whether|before|ensure|verify|check)\b|n't\b/i;
+
 export interface ExitCheck {
     shouldExit: boolean;
     reason?: string;
@@ -29,7 +32,7 @@ export class ExitDetector {
 
         // Check for completion patterns
         for (const pattern of EXIT_PATTERNS) {
-            if (pattern.test(response)) {
+            if (this.statesCompletion(response, pattern)) {
                 log.info('Exit pattern matched', { pattern: pattern.source });
                 return {
                     shouldExit: true,
@@ -52,6 +55,25 @@ export class ExitDetector {
     }
 
     /**
+     * True when the response states completion with this phrase. A phrase that is negated
+     * ("not all tasks are completed yet") or conditional ("once all tasks are completed, ...")
+     * within its clause is not a statement of completion.
+     */
+    private statesCompletion(response: string, pattern: RegExp): boolean {
+        const matcher = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g');
+        let match: RegExpExecArray | null;
+        while ((match = matcher.exec(response)) !== null) {
+            const before = response.slice(Math.max(0, match.index - 80), match.index);
+            const clause = before.split(/[.!?;:,\n]/).pop() || '';
+            if (!NOT_A_COMPLETION.test(clause)) {
+                return true;
+            }
+            if (match[0].length === 0) matcher.lastIndex++;
+        }
+        return false;
+    }
+
+    /**
      * Reports a failure in the loop (e.g., error, timeout)
      */
     reportFailure(): ExitCheck {
@@ -61,7 +83,7 @@ export class ExitDetector {
         if (this.consecutiveFailures >= this.maxConsecutiveFailures) {
             return {
                 shouldExit: true,
-                reason: `Circuit breaker: ${this.consecutiveFailures} consecutive failures`,
+                reason: `${this.consecutiveFailures} consecutive failures`,
                 confidence: 1.0,
             };
         }
@@ -92,16 +114,13 @@ export class ExitDetector {
     private readonly stagnationThreshold = 3;
 
     private isStagnant(response: string): boolean {
-        // Normalize response for comparison
-        const normalized = this.normalizeResponse(response);
+        const fingerprint = this.fingerprint(response);
 
-        // Check if this response is similar to recent ones
-        const duplicates = this.lastResponses.filter(
-            (r) => this.isSimilar(normalized, r)
-        ).length;
+        // How many of the recent responses were the same text
+        const duplicates = this.lastResponses.filter((r) => r === fingerprint).length;
 
         // Update history
-        this.lastResponses.push(normalized);
+        this.lastResponses.push(fingerprint);
         if (this.lastResponses.length > 5) {
             this.lastResponses.shift();
         }
@@ -109,24 +128,17 @@ export class ExitDetector {
         return duplicates >= this.stagnationThreshold - 1;
     }
 
-    private normalizeResponse(response: string): string {
-        return response
-            .toLowerCase()
-            .replace(/\s+/g, ' ')
-            .trim()
-            .substring(0, 500); // Only compare first 500 chars
-    }
-
-    private isSimilar(a: string, b: string): boolean {
-        if (a === b) return true;
-
-        // Simple similarity: check if one contains the other
-        if (a.length > 100 && b.length > 100) {
-            const overlap = a.substring(0, 100) === b.substring(0, 100);
-            return overlap;
+    /**
+     * Identifies a response by its whole text, ignoring case and whitespace. Comparing only an
+     * opening excerpt made different answers with the same boilerplate first sentence look identical.
+     */
+    private fingerprint(response: string): string {
+        const normalized = response.toLowerCase().replace(/\s+/g, ' ').trim();
+        let hash = 0;
+        for (let i = 0; i < normalized.length; i++) {
+            hash = ((hash << 5) - hash + normalized.charCodeAt(i)) | 0;
         }
-
-        return false;
+        return `${normalized.length}:${hash.toString(16)}`;
     }
 }
 

@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { exec } from 'child_process';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('ProjectManager');
@@ -94,15 +95,20 @@ export class ProjectManager {
         const lines = content.split('\n');
 
         for (const line of lines) {
-            // Parse markdown task format: - [ ] Task description
-            const match = line.match(/^[-*]\s*\[([x\s])\]\s*(.+)$/i);
+            // Parse markdown task format: - [ ] Task, - [x] Done, - [/] In progress (any indentation)
+            const match = line.match(/^\s*[-*+]\s*\[([x\s/])\]\s*(.+)$/i);
             if (match) {
-                const status = match[1].toLowerCase() === 'x' ? 'done' : 'todo';
-                const title = match[2].trim();
+                const mark = match[1].toLowerCase();
+                const status = mark === 'x' ? 'done' : mark === '/' ? 'in_progress' : 'todo';
+                // updateFixPlan() appends " [priority]"; read it back so a round trip is stable
+                const priorityMatch = match[2].trim().match(/^(.*?)\s+\[(low|medium|high|critical)\]$/i);
+                const title = (priorityMatch ? priorityMatch[1] : match[2]).trim();
+                const priority = priorityMatch ? priorityMatch[2].toLowerCase() as ProjectTask['priority'] : undefined;
 
                 tasks.push({
                     id: this.generateId(title),
                     title,
+                    priority,
                     status,
                     source: 'local',
                     createdAt: Date.now(),
@@ -113,6 +119,23 @@ export class ProjectManager {
 
         log.info(`Synced ${tasks.length} tasks from @fix_plan.md`);
         return tasks;
+    }
+
+    /**
+     * Combine the tasks already in @fix_plan.md with freshly fetched ones. Existing entries keep
+     * their place and their status (a box you ticked stays ticked); tasks with a new title are added.
+     */
+    mergeTasks(existing: ProjectTask[], incoming: ProjectTask[]): ProjectTask[] {
+        const key = (task: ProjectTask) => task.title.trim().toLowerCase();
+        const merged = [...existing];
+        const known = new Set(existing.map(key));
+        for (const task of incoming) {
+            if (!known.has(key(task))) {
+                known.add(key(task));
+                merged.push(task);
+            }
+        }
+        return merged;
     }
 
     async updateFixPlan(tasks: ProjectTask[]): Promise<void> {
@@ -191,8 +214,9 @@ export class ProjectManager {
                 updatedAt: Date.now()
             }));
         } catch (error) {
+            // Do not turn a failure into "no issues": the caller would rewrite the plan with nothing
             log.error('Failed to fetch GitHub issues', { error: (error as Error).message });
-            return [];
+            throw error;
         }
     }
 
@@ -329,7 +353,7 @@ export class ProjectManager {
             }));
         } catch (error) {
             log.error('Failed to fetch Jira issues', { error: (error as Error).message });
-            return [];
+            throw error;
         }
     }
 
@@ -359,22 +383,18 @@ export class ProjectManager {
 
     // ============ Git Operations ============
     async getCurrentBranch(): Promise<string> {
-        const { exec } = require('child_process');
-
         return new Promise((resolve) => {
-            exec('git branch --show-current', { cwd: this.workspaceRoot }, (error: Error | null, stdout: string) => {
+            exec('git branch --show-current', { cwd: this.workspaceRoot ?? undefined }, (error: Error | null, stdout: string) => {
                 resolve(error ? 'main' : stdout.trim());
             });
         });
     }
 
     async createBranchFromTask(task: ProjectTask): Promise<string> {
-        const { exec } = require('child_process');
-
         const branchName = this.generateBranchName(task);
 
         return new Promise((resolve, reject) => {
-            exec(`git checkout -b ${branchName}`, { cwd: this.workspaceRoot }, (error: Error | null) => {
+            exec(`git checkout -b ${branchName}`, { cwd: this.workspaceRoot ?? undefined }, (error: Error | null) => {
                 if (error) {
                     reject(error);
                 } else {
@@ -386,10 +406,8 @@ export class ProjectManager {
     }
 
     async commitProgress(message: string): Promise<void> {
-        const { exec } = require('child_process');
-
-        return new Promise((resolve, reject) => {
-            exec(`git add -A && git commit -m "${message}"`, { cwd: this.workspaceRoot }, (error: Error | null) => {
+        return new Promise((resolve) => {
+            exec(`git add -A && git commit -m "${message}"`, { cwd: this.workspaceRoot ?? undefined }, (error: Error | null) => {
                 if (error) {
                     log.warn('Commit failed (may have no changes)');
                     resolve();

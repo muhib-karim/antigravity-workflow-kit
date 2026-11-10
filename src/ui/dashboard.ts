@@ -4,13 +4,18 @@
  */
 
 import * as vscode from 'vscode';
-import { DASHBOARD_CSS, KOFI_LINK, GITHUB_LINK, ICONS } from './styles';
+import { DASHBOARD_CSS, KOFI_LINK, ICONS } from './styles';
 import { config } from '../utils/config';
 import { usageProvider } from '../providers/antigravity-usage';
 import { createLogger } from '../utils/logger';
-import { SessionStats, UsageData, ModelId, MODEL_LABELS } from '../utils/constants';
+import { SessionStats, UsageData, MODEL_LABELS } from '../utils/constants';
 
 const log = createLogger('Dashboard');
+
+/** Escape text that comes from outside the extension before it goes into the webview HTML */
+function escapeHtml(text: string): string {
+    return String(text).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] as string));
+}
 
 export interface DashboardState {
     autoAllEnabled: boolean;
@@ -34,6 +39,12 @@ export interface DashboardState {
 
 export class DashboardPanel {
     private static instance: DashboardPanel | undefined;
+
+    /** The open dashboard, if any */
+    static get current(): DashboardPanel | undefined {
+        return DashboardPanel.instance;
+    }
+
     private panel: vscode.WebviewPanel;
     private state: DashboardState;
     private refreshTimer: NodeJS.Timeout | null = null;
@@ -143,7 +154,27 @@ export class DashboardPanel {
     }
 
     private update(): void {
+        this.syncTogglesFromConfig();
         this.panel.webview.html = this.generateHtml();
+    }
+
+    /**
+     * Feature toggles are rendered from the configuration, not from a snapshot taken when the panel
+     * opened. Otherwise the periodic re-render flips a toggle back while the setting stays changed.
+     * (autopilotModeEnabled is the loop's running state and is pushed in through updateState.)
+     */
+    private syncTogglesFromConfig(): void {
+        this.state.autoAllEnabled = config.get('autoAllEnabled');
+        this.state.multiTabEnabled = config.get('multiTabEnabled');
+        this.state.autoSwitchModels = config.get('autoSwitchModels');
+        this.state.autoGitCommit = config.get('autoGitCommit');
+        this.state.mcpEnabled = config.get('mcpEnabled');
+        this.state.memoryEnabled = config.get('memoryEnabled');
+        this.state.codeReviewEnabled = config.get('codeReviewEnabled');
+        this.state.voiceControlEnabled = config.get('voiceControlEnabled');
+        this.state.multiAgentEnabled = config.get('multiAgentEnabled');
+        this.state.notificationsEnabled = config.get('notificationsEnabled');
+        this.state.autoTestGeneration = config.get('autoTestGeneration');
     }
 
     private generateUsageBars(): string {
@@ -158,7 +189,7 @@ export class DashboardPanel {
                 return `
           <div class="usage-item">
             <div class="usage-header">
-              <span class="model-name">${model.label}</span>
+              <span class="model-name">${escapeHtml(model.label)}</span>
               <span class="usage-percent ${barClass}">${remaining.toFixed(0)}% left</span>
             </div>
             <div class="meter-container">
@@ -172,8 +203,8 @@ export class DashboardPanel {
 
     private generateHtml(): string {
         const cfg = config.getAll();
-        const planBadge = this.state.usage?.plan ? `<span class="plan-badge">${this.state.usage.plan}</span>` : '';
-        const email = this.state.usage?.email || '';
+        const planBadge = this.state.usage?.plan ? `<span class="plan-badge">${escapeHtml(this.state.usage.plan)}</span>` : '';
+        const email = escapeHtml(this.state.usage?.email || '');
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -231,20 +262,21 @@ export class DashboardPanel {
             </div>
             ${this.generateToggleRow('Auto-All Mode', 'Automatically accept all file changes and terminal commands - no more clicking Accept buttons', 'autoAll', this.state.autoAllEnabled)}
             ${this.generateToggleRow('Multi-Tab Mode', 'Work across all your open Antigravity conversations simultaneously', 'multiTab', this.state.multiTabEnabled)}
-            ${this.generateToggleRow('AI Autonomous Mode', 'Let AI run continuously: it picks the best model, recovers when stuck, uses @web research, and keeps working until your project is done', 'autopilotMode', this.state.autopilotModeEnabled)}
+            ${this.generateToggleRow('AI Autonomous Mode (beta)', 'Works through @fix_plan.md on its own: picks a model per task, tries recovery prompts when stuck, and stops when the circuit breaker or exit detector says so', 'autopilotMode', this.state.autopilotModeEnabled)}
             ${this.generateToggleRow('Smart Model Switching', 'Automatically uses Claude for complex problems, Gemini for UI work, and Flash for quick tasks', 'autoSwitchModels', this.state.autoSwitchModels)}
-            ${this.generateToggleRow('Auto Git Commit', 'Saves your progress to Git every 10 loops - never lose work', 'autoGitCommit', this.state.autoGitCommit)}
+            ${this.generateToggleRow('Auto Git Commit', 'Runs git add -A and git commit every 10 loops of the autonomous loop', 'autoGitCommit', this.state.autoGitCommit)}
         </div>
         
         <div class="section">
-            <h2>🚀 v3.0 Advanced Features</h2>
-            ${this.generateToggleRow('MCP Server', 'Expose AI-callable tools for file ops, terminal commands, git, and diagnostics', 'mcpEnabled', this.state.mcpEnabled)}
-            ${this.generateToggleRow('Session Memory', 'Persistent context tracking across sessions with semantic search', 'memoryEnabled', this.state.memoryEnabled)}
-            ${this.generateToggleRow('Code Review', 'Automatic security scanning (SQL injection, XSS, secrets) with VS Code diagnostics', 'codeReviewEnabled', this.state.codeReviewEnabled)}
-            ${this.generateToggleRow('Voice Control', 'Natural language voice commands - say "Workflow Kit start autonomous"', 'voiceControlEnabled', this.state.voiceControlEnabled)}
-            ${this.generateToggleRow('Multi-Agent', 'Spawn specialized agents (Researcher, Implementer, Reviewer, Tester) for parallel work', 'multiAgentEnabled', this.state.multiAgentEnabled)}
-            ${this.generateToggleRow('Notifications', 'Slack/Discord/webhook notifications and daily summaries', 'notificationsEnabled', this.state.notificationsEnabled)}
-            ${this.generateToggleRow('Auto Test Gen', 'Automatically generate unit tests for new code (Vitest/Jest/Mocha)', 'autoTestGeneration', this.state.autoTestGeneration)}
+            <h2>🧪 Experimental scaffolds</h2>
+            <p class="section-note">These switches only store a setting. The modules behind them are not connected to the agent yet.</p>
+            ${this.generateToggleRow('MCP tool registry', 'In-process registry of file, terminal, git and diagnostics tools. Not exposed to the agent yet', 'mcpEnabled', this.state.mcpEnabled)}
+            ${this.generateToggleRow('Session Memory', 'Storage for session notes. Nothing records to it yet', 'memoryEnabled', this.state.memoryEnabled)}
+            ${this.generateToggleRow('Code Review', 'Reserved for automatic review. The Run Code Review command works regardless', 'codeReviewEnabled', this.state.codeReviewEnabled)}
+            ${this.generateToggleRow('Voice Control', 'Voice command parser. Speech input is not connected yet', 'voiceControlEnabled', this.state.voiceControlEnabled)}
+            ${this.generateToggleRow('Multi-Agent', 'Agent roles and a task queue. Agents do not execute anything yet', 'multiAgentEnabled', this.state.multiAgentEnabled)}
+            ${this.generateToggleRow('Notifications', 'Slack/Discord/webhook senders. Nothing sends them yet', 'notificationsEnabled', this.state.notificationsEnabled)}
+            ${this.generateToggleRow('Auto Test Gen', 'Reserved for automatic test generation. The Generate Tests command works regardless', 'autoTestGeneration', this.state.autoTestGeneration)}
         </div>
         
         <div class="section">

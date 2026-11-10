@@ -50,5 +50,25 @@ describe('CodeReviewer (src/core/code-reviewer)', () => {
         it('allows ordinary commands', () => {
             expect(reviewer.checkBannedCommands('npm test', banned).blocked).toBe(false);
         });
+
+        it.each([
+            'rm -fr /',
+            'rm -r -f /',
+            'rm --recursive --force /',
+            'rm -rf "/"',
+            "rm -rf '/'",
+            'rm -rf --no-preserve-root /',
+            'dd of=/dev/sda if=/dev/zero',
+        ])('blocks destructive variant: %s', (cmd) => {
+            expect(reviewer.checkBannedCommands(cmd, banned).blocked).toBe(true);
+        });
+
+        it('ignores empty deny-list entries instead of blocking everything', () => {
+            expect(reviewer.checkBannedCommands('npm test', ['', '   ']).blocked).toBe(false);
+        });
+
+        it('reports why a command was blocked', () => {
+            expect(reviewer.checkBannedCommands('format c:', banned).reason).toContain('format c:');
+        });
     });
 });

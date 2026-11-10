@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { exec } from 'child_process';
 import { circuitBreaker, CircuitState } from './circuit-breaker';
 import { progressTracker } from './progress-tracker';
 import { rateLimitHandler } from './rate-limit-handler';
@@ -18,6 +19,7 @@ import { exitDetector } from './exit-detector';
 import { recoveryManager } from './recovery-strategies';
 import { cdpClient } from '../providers/cdp-client';
 import { config } from '../utils/config';
+import { MODEL_LABELS } from '../utils/constants';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('AutonomousLoop');
@@ -40,9 +42,12 @@ export interface LoopStatus {
 
 export class AutonomousLoop {
     private running = false;
+    /** Incremented by every start(). A loop whose id is no longer current must stop touching things. */
+    private runId = 0;
     private loopCount = 0;
     private currentTask: string | null = null;
     private timer: NodeJS.Timeout | null = null;
+    private wakeUp: (() => void) | null = null;
     private workspaceRoot: string | null = null;
     private goal: string = '';
     private recoveryPrompt: string | null = null;
@@ -75,8 +80,12 @@ export class AutonomousLoop {
 
         // Reset state
         this.running = true;
+        const runId = ++this.runId;
         this.loopCount = 0;
+        this.currentTask = null;
+        this.recoveryPrompt = null;
         this.goal = loopConfig.goal || '';
+        recoveryManager.reset();
         circuitBreaker.reset('New session started');
         progressTracker.startSession();
         rateLimitHandler.reset();
@@ -88,8 +97,25 @@ export class AutonomousLoop {
         log.info('🚀 Autonomous loop starting');
         this.showNotification('🚀 Antigravity Workflow Kit Autonomous Mode: STARTING');
 
-        // Start the loop
-        await this.runLoop(loopConfig);
+        // Start the loop. Whatever happens inside, `running` must not stay true once it is over.
+        try {
+            await this.runLoop(loopConfig, runId);
+        } catch (err) {
+            const message = (err as Error).message;
+            log.error(`Loop crashed: ${message}`);
+            if (this.isCurrent(runId)) {
+                this.stop(`Loop error: ${message}`);
+            }
+        }
+    }
+
+    /**
+     * True while the loop started with this id is the one that should be running.
+     * Checked after every await, so a loop that was stopped (or replaced by a new start())
+     * while it was waiting on the editor does not carry on.
+     */
+    private isCurrent(runId: number): boolean {
+        return this.running && this.runId === runId;
     }
 
     /**
@@ -103,6 +129,16 @@ export class AutonomousLoop {
             clearTimeout(this.timer);
             this.timer = null;
         }
+        // Release a loop that is sleeping between iterations so it can end instead of hanging
+        if (this.wakeUp) {
+            const wake = this.wakeUp;
+            this.wakeUp = null;
+            wake();
+        }
+
+        // Close the loop's CDP socket. This also fails any command still in flight, so a loop that
+        // is waiting for a response notices at once instead of after the response timeout.
+        cdpClient.disconnect();
 
         log.info(`Loop stopped: ${reason}`);
         this.showSummary(reason);
@@ -112,11 +148,11 @@ export class AutonomousLoop {
     /**
      * Main loop logic
      */
-    private async runLoop(loopConfig: Partial<LoopConfig>): Promise<void> {
+    private async runLoop(loopConfig: Partial<LoopConfig>, runId: number): Promise<void> {
         const maxLoops = loopConfig.maxLoops || config.get('maxLoopsPerSession');
         const intervalSeconds = loopConfig.loopIntervalSeconds || config.get('loopInterval');
 
-        while (this.running) {
+        while (this.isCurrent(runId)) {
             this.loopCount++;
             log.info(`=== Loop #${this.loopCount} ===`);
             this.updateStatus();
@@ -131,6 +167,7 @@ export class AutonomousLoop {
             if (!rateLimiter.canMakeCall()) {
                 log.warn('Hourly rate limit reached');
                 const decision = await rateLimiter.handleRateLimitReached();
+                if (!this.isCurrent(runId)) return;
                 if (decision === 'exit') {
                     this.stop('Rate limit reached - user chose to exit');
                     return;
@@ -146,6 +183,7 @@ export class AutonomousLoop {
 
             // 3. GET CURRENT TASK
             this.currentTask = await this.getCurrentTask();
+            if (!this.isCurrent(runId)) return;
             if (!this.currentTask) {
                 this.stop('All tasks completed! 🎉');
                 return;
@@ -155,20 +193,41 @@ export class AutonomousLoop {
             if (config.get('autoSwitchModels')) {
                 const selection = modelSelector.selectForTask(this.currentTask);
                 rateLimitHandler.setCurrentModel(selection.modelId);
-                log.info(`Model: ${selection.modelDisplayName} (${selection.reasoning})`);
+                // Not necessarily the preferred model: that one may be rate limited
+                const target = rateLimitHandler.getCurrentModel();
+                log.info(`Model: ${MODEL_LABELS[target] || target} (${selection.reasoning})`);
 
-                // Only show notification if model actually changed
-                if (this.previousModel !== selection.modelId) {
-                    if (this.previousModel !== null) {
-                        modelSelector.showSwitchNotification(selection);
+                // Select it in the editor whenever it changes, including on the first loop (the
+                // picker can be on anything). One attempt per change; a switch is only announced
+                // and counted when it really happened.
+                if (this.previousModel !== target) {
+                    const firstLoop = this.previousModel === null;
+                    this.previousModel = target;
+
+                    if (!cdpClient.isConnected()) {
+                        await cdpClient.connect();
+                        if (!this.isCurrent(runId)) return;
+                    }
+                    const switched = await cdpClient.switchModel(target);
+                    if (!this.isCurrent(runId)) return;
+
+                    if (!switched) {
+                        log.warn(`Could not select ${target} in the editor; continuing with the model that is active`);
+                    } else if (!firstLoop) {
+                        if (target === selection.modelId) {
+                            modelSelector.showSwitchNotification(selection);
+                        } else {
+                            this.showNotification(`🔄 Workflow Kit: switched to ${MODEL_LABELS[target] || target}`);
+                        }
                         progressTracker.recordModelSwitch();
                     }
-                    this.previousModel = selection.modelId;
                 }
             }
 
             // 5. EXECUTE TASK
-            const success = await this.executeTask();
+            const { success, response } = await this.executeTask(runId);
+            // Stopped (exit signal, repeated failures, user) or replaced by a new session meanwhile
+            if (!this.isCurrent(runId)) return;
 
             // 6. HANDLE RESULT
             if (!success) {
@@ -183,7 +242,10 @@ export class AutonomousLoop {
             const progress = await progressTracker.recordLoop({
                 modelUsed: rateLimitHandler.getCurrentModel(),
                 hasErrors: !success,
+                responseLength: response.length,
+                responseHash: progressTracker.hashResponse(response),
             });
+            if (!this.isCurrent(runId)) return;
 
             // 8. UPDATE CIRCUIT BREAKER
             const canContinue = circuitBreaker.recordResult({
@@ -191,7 +253,7 @@ export class AutonomousLoop {
                 filesChanged: progress.filesChanged,
                 hasErrors: progress.hasErrors,
                 responseLength: progress.responseLength,
-                responseHash: progress.responseHash,
+                responseHash: progress.responseHash || undefined,
             });
 
             // 9. TRY RECOVERY IF CIRCUIT BREAKER INDICATES TROUBLE
@@ -221,10 +283,14 @@ export class AutonomousLoop {
                 // All recovery attempts exhausted
                 this.stop(circuitBreaker.getFullState().reason);
                 return;
-            } else {
-                // Success! Reset recovery state
+            }
+
+            // A recovery prompt is used for one loop only. The recovery budget is handed back only
+            // when a loop makes real progress; "the breaker is not open yet" is not progress, and
+            // resetting on it let a stuck loop recover forever.
+            this.recoveryPrompt = null;
+            if (progress.filesChanged > 0) {
                 recoveryManager.reset();
-                this.recoveryPrompt = null;
             }
 
             // 10. AUTO GIT COMMIT (every 10 loops)
@@ -279,16 +345,18 @@ export class AutonomousLoop {
     }
 
     /**
-     * Execute the current task via CDP
+     * Execute the current task via CDP.
+     * Returns whether the iteration succeeded and the response text (empty when there was none).
      */
-    private async executeTask(): Promise<boolean> {
+    private async executeTask(runId: number): Promise<{ success: boolean; response: string }> {
         // Ensure connected
         if (!cdpClient.isConnected()) {
             const connected = await cdpClient.connect();
+            if (!this.isCurrent(runId)) return { success: false, response: '' };
             if (!connected) {
                 log.warn('CDP not available, waiting for Antigravity...');
                 await this.wait(5000);
-                return true; // Keep loop running
+                return { success: true, response: '' }; // Keep loop running
             }
         }
 
@@ -299,9 +367,11 @@ export class AutonomousLoop {
             // Inject prompt into Antigravity chat
             log.info('Injecting prompt...');
             const injected = await cdpClient.injectPrompt(prompt);
+            if (!this.isCurrent(runId)) return { success: false, response: '' };
             if (!injected) {
                 log.error('Failed to inject prompt');
-                return false;
+                this.recordFailure('could not inject the prompt into the chat');
+                return { success: false, response: '' };
             }
 
             // Record call for rate limiting
@@ -311,17 +381,19 @@ export class AutonomousLoop {
             log.info('Waiting for response...');
             const timeoutMs = (config.get('executionTimeout') || 15) * 60 * 1000;
             const response = await cdpClient.waitForResponse(timeoutMs);
+            if (!this.isCurrent(runId)) return { success: false, response: '' };
 
             // Check for rate limit in response
             if (rateLimitHandler.isRateLimited(response)) {
                 log.warn('Rate limit detected, switching model');
-                progressTracker.recordModelSwitch();
                 const nextModel = rateLimitHandler.getNextModel();
                 if (nextModel) {
-                    await cdpClient.switchModel(nextModel);
-                    return false; // Retry with new model
+                    this.previousModel = nextModel;
+                    if (await cdpClient.switchModel(nextModel)) {
+                        progressTracker.recordModelSwitch();
+                    }
                 }
-                return false;
+                return { success: false, response }; // Retry with new model
             }
 
             // Check for exit signals
@@ -329,7 +401,7 @@ export class AutonomousLoop {
             if (exitCheck.shouldExit) {
                 log.info(`Exit signal: ${exitCheck.reason}`);
                 this.stop(exitCheck.reason || 'Task completed');
-                return true;
+                return { success: true, response };
             }
 
             // Check for test-only loops (Ralph feature)
@@ -337,18 +409,26 @@ export class AutonomousLoop {
             if (testCheck.shouldExit) {
                 log.info(`Test loop exit: ${testCheck.reason}`);
                 this.stop(testCheck.reason || 'Feature likely complete (test loops detected)');
-                return true;
+                return { success: true, response };
             }
 
             exitDetector.reportSuccess();
-            return true;
+            return { success: true, response };
         } catch (err) {
-            log.error(`Execution error: ${(err as Error).message}`);
-            const failCheck = exitDetector.reportFailure();
-            if (failCheck.shouldExit) {
-                this.stop(failCheck.reason || 'Too many failures');
-            }
-            return false;
+            const message = (err as Error).message;
+            log.error(`Execution error: ${message}`);
+            this.recordFailure(message);
+            return { success: false, response: '' };
+        }
+    }
+
+    /**
+     * Count a failed iteration. Three in a row stop the loop.
+     */
+    private recordFailure(what: string): void {
+        const failCheck = exitDetector.reportFailure();
+        if (failCheck.shouldExit) {
+            this.stop(`${failCheck.reason || 'Too many failures'} (last: ${what})`);
         }
     }
 
@@ -374,7 +454,13 @@ export class AutonomousLoop {
      */
     private wait(ms: number): Promise<void> {
         return new Promise((resolve) => {
-            this.timer = setTimeout(resolve, ms);
+            const done = () => {
+                this.timer = null;
+                this.wakeUp = null;
+                resolve();
+            };
+            this.wakeUp = done; // stop() calls this so the sleeping loop can end
+            this.timer = setTimeout(done, ms);
         });
     }
 
@@ -385,7 +471,6 @@ export class AutonomousLoop {
         if (!this.workspaceRoot) return;
 
         try {
-            const { exec } = require('child_process');
             exec(
                 `git add -A && git commit -m "Workflow Kit auto-commit: Loop ${this.loopCount}"`,
                 { cwd: this.workspaceRoot },

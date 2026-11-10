@@ -49,7 +49,8 @@ export class MemoryManager {
         const folders = vscode.workspace.workspaceFolders;
         if (folders?.[0]) {
             this.storagePath = path.join(folders[0].uri.fsPath, '.workflow-kit', 'memory');
-            this.ensureStorageDir();
+            // The directory is created on the first save, not here: activating the extension must
+            // not leave a .workflow-kit/ folder in every workspace that is opened.
             this.loadIndex();
         }
     }
@@ -257,6 +258,7 @@ export class MemoryManager {
         if (!this.storagePath) return;
 
         try {
+            this.ensureStorageDir();
             const filePath = path.join(this.storagePath, `${session.sessionId}.json`);
             fs.writeFileSync(filePath, JSON.stringify(session, null, 2));
             this.saveIndex();
@@ -304,6 +306,7 @@ export class MemoryManager {
         if (!this.storagePath) return;
 
         try {
+            this.ensureStorageDir();
             const indexPath = path.join(this.storagePath, 'index.json');
             const data = Object.fromEntries(this.memoryIndex);
             fs.writeFileSync(indexPath, JSON.stringify(data));

@@ -10,29 +10,44 @@ import { StatusBarManager } from './ui/status-bar';
 import { DashboardPanel } from './ui/dashboard';
 import { config } from './utils/config';
 import { createLogger } from './utils/logger';
+import { CDP_PORT_MIN, CDP_PORT_MAX } from './utils/constants';
+import { cdpClient } from './providers/cdp-client';
 import { autonomousLoop } from './core/autonomous-loop';
 import { circuitBreaker } from './core/circuit-breaker';
 import { progressTracker } from './core/progress-tracker';
 // New feature imports
-import { mcpServer } from './providers/mcp-server';
 import { memoryManager } from './core/memory-manager';
 import { codeReviewer } from './core/code-reviewer';
 import { projectManager } from './providers/project-manager';
 import { voiceController } from './ui/voice-controller';
 import { agentOrchestrator } from './core/agent-orchestrator';
 import { testGenerator } from './core/test-generator';
-import { modelProviderManager } from './providers/model-provider';
-import { notificationManager } from './core/notification-manager';
 
 const log = createLogger('Extension');
 
 // ============ State (matches old extension) ============
 let statusBar: StatusBarManager;
-let cdpHandler: any = null;
-let relauncher: any = null;
+/** What src/extension.ts uses of main_scripts/cdp-handler.js (plain JS, loaded at runtime) */
+interface CdpHandler {
+    setProStatus?(isPro: boolean): void;
+    setLogFile(filePath: string): void;
+    isCDPAvailable(): Promise<boolean>;
+    start(config: Record<string, unknown>): Promise<void>;
+    stop(): Promise<void>;
+}
+
+/** What src/extension.ts uses of main_scripts/relauncher.js */
+interface RelauncherLike {
+    showRelaunchPrompt(): Promise<string>;
+}
+
+let cdpHandler: CdpHandler | null = null;
+let relauncher: RelauncherLike | null = null;
 let pollTimer: NodeJS.Timeout | null = null;
 let currentIDE = 'Antigravity';
 let globalContext: vscode.ExtensionContext;
+// One collection for all code-review diagnostics; created on first use, disposed with the extension
+let reviewDiagnostics: vscode.DiagnosticCollection | undefined;
 
 // ============ Activation (matches old extension flow) ============
 export function activate(context: vscode.ExtensionContext): void {
@@ -45,31 +60,50 @@ export function activate(context: vscode.ExtensionContext): void {
     else if (appName.toLowerCase().includes('antigravity')) currentIDE = 'Antigravity';
     log.info(`Detected IDE: ${currentIDE}`);
 
-    // Initialize CDP handler from main_scripts (SAME AS OLD EXTENSION)
+    // Initialize the CDP handler from main_scripts (plain JS, loaded at runtime).
+    // Auto-accept cannot work without it, so a load failure is shown to the user instead of only logged.
+    cdpHandler = null;
+    relauncher = null;
     try {
         const cdpHandlerPath = path.join(context.extensionPath, 'main_scripts', 'cdp-handler.js');
-        const relauncherPath = path.join(context.extensionPath, 'main_scripts', 'relauncher.js');
-
+        // eslint-disable-next-line @typescript-eslint/no-var-requires -- plain JS loaded from the installed extension folder at runtime
         const { CDPHandler } = require(cdpHandlerPath);
-        const { Relauncher, BASE_CDP_PORT } = require(relauncherPath);
 
-        cdpHandler = new CDPHandler(BASE_CDP_PORT, BASE_CDP_PORT + 10, log.info.bind(log));
+        const handler: CdpHandler = new CDPHandler(CDP_PORT_MIN, CDP_PORT_MAX, log.info.bind(log));
+        cdpHandler = handler;
 
         // CRITICAL: Set Pro status like old extension (enables all features)
-        if (cdpHandler.setProStatus) {
-            cdpHandler.setProStatus(true);
+        if (handler.setProStatus) {
+            handler.setProStatus(true);
         }
 
         // Set log file like old extension
         try {
             const logPath = path.join(context.extensionPath, 'workflow-kit-cdp.log');
-            cdpHandler.setLogFile(logPath);
-        } catch { }
+            handler.setLogFile(logPath);
+        } catch {
+            // the log file is optional (the extension folder may be read-only)
+        }
 
-        relauncher = new Relauncher(log.info.bind(log));
-        log.info('CDP handler and relauncher initialized with Pro status');
+        log.info('CDP handler initialized with Pro status');
     } catch (err) {
-        log.warn(`Failed to load CDP modules: ${(err as Error).message}`);
+        cdpHandler = null;
+        const reason = (err as Error).message.split('\n')[0];
+        log.error(`Failed to load the CDP handler: ${reason}`);
+        vscode.window.showErrorMessage(
+            `Workflow Kit: auto-accept is unavailable because its CDP handler failed to load (${reason}). ` +
+            'Reinstall the extension or report this issue.'
+        );
+    }
+
+    // The relauncher is only needed to offer a restart with the remote-debugging port.
+    try {
+        const relauncherPath = path.join(context.extensionPath, 'main_scripts', 'relauncher.js');
+        // eslint-disable-next-line @typescript-eslint/no-var-requires -- plain JS loaded from the installed extension folder at runtime
+        const { Relauncher } = require(relauncherPath);
+        relauncher = new Relauncher(log.info.bind(log));
+    } catch (err) {
+        log.warn(`Failed to load the relauncher: ${(err as Error).message.split('\n')[0]}`);
     }
 
     // Initialize status bar
@@ -82,6 +116,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Set up autonomous loop status callback
     autonomousLoop.setStatusCallback((status) => {
         updateStatusBar();
+        refreshDashboard();
         if (!status.running) {
             config.set('autopilotModeEnabled', false);
         }
@@ -116,7 +151,7 @@ async function ensureCDPOrPrompt(showPrompt: boolean): Promise<void> {
     if (cdpAvailable) {
         log.info('CDP is active and available.');
     } else {
-        log.info('CDP not found on expected ports (9000-9030).');
+        log.info(`CDP not found on expected ports (${CDP_PORT_MIN}-${CDP_PORT_MAX}).`);
 
         if (showPrompt && relauncher) {
             log.info('Auto-prompting user for relaunch to enable CDP...');
@@ -129,11 +164,17 @@ async function ensureCDPOrPrompt(showPrompt: boolean): Promise<void> {
 
 // ============ Polling (SAME AS OLD EXTENSION) ============
 async function startPolling(): Promise<void> {
+    // Callers reach this after awaiting the relaunch prompt; Auto-All may have been turned off meanwhile
+    if (!config.get('autoAllEnabled')) {
+        log.info('Workflow Kit: Auto-All is off, not starting CDP polling');
+        return;
+    }
+
     if (pollTimer) clearInterval(pollTimer);
     log.info('Workflow Kit: Starting CDP polling...');
 
-    await syncCDPSession();
-
+    // The timer is registered before the first (awaited) sync, so a second startPolling() that
+    // arrives during that sync replaces it instead of adding another one.
     pollTimer = setInterval(async () => {
         if (!config.get('autoAllEnabled')) {
             await stopPolling();
@@ -141,10 +182,13 @@ async function startPolling(): Promise<void> {
         }
         await syncCDPSession();
     }, 5000);
+
+    await syncCDPSession();
 }
 
 async function syncCDPSession(): Promise<void> {
     if (!cdpHandler) return;
+    if (!config.get('autoAllEnabled')) return;
 
     try {
         await cdpHandler.start({
@@ -167,7 +211,9 @@ async function stopPolling(): Promise<void> {
     if (cdpHandler) {
         try {
             await cdpHandler.stop();
-        } catch { }
+        } catch {
+            // stopping is best effort; the page-side heartbeat ends the loop if this did not get through
+        }
     }
     log.info('Workflow Kit: Polling stopped');
 }
@@ -200,10 +246,10 @@ async function toggleMcp(): Promise<void> {
 
     if (!current) {
         log.info('MCP Server enabled');
-        vscode.window.showInformationMessage('✅ MCP Server: ON - AI tools now available');
+        vscode.window.showInformationMessage('✅ MCP tool registry: ON (experimental: not exposed to the agent yet)');
     } else {
         log.info('MCP Server disabled');
-        vscode.window.showInformationMessage('⏸️ MCP Server: OFF');
+        vscode.window.showInformationMessage('⏸️ MCP tool registry: OFF');
     }
 }
 
@@ -265,10 +311,14 @@ async function runCodeReview(): Promise<void> {
 
     const result = codeReviewer.review(code, filename);
 
-    // Show diagnostics in VS Code
+    // Show diagnostics in VS Code. One shared collection: set() replaces this file's previous
+    // results, and the collection is disposed together with the extension.
     const diagnostics = codeReviewer.showDiagnostics(editor.document, result.issues);
-    const collection = vscode.languages.createDiagnosticCollection('workflow-kit-review');
-    collection.set(editor.document.uri, diagnostics);
+    if (!reviewDiagnostics) {
+        reviewDiagnostics = vscode.languages.createDiagnosticCollection('workflow-kit-review');
+        globalContext.subscriptions.push(reviewDiagnostics);
+    }
+    reviewDiagnostics.set(editor.document.uri, diagnostics);
 
     vscode.window.showInformationMessage(result.summary, 'View Details').then(action => {
         if (action === 'View Details') {
@@ -332,7 +382,7 @@ async function startMultiAgent(): Promise<void> {
 
     try {
         await agentOrchestrator.coordinateAgents(task);
-        vscode.window.showInformationMessage('✅ Multi-agent task initiated');
+        vscode.window.showInformationMessage('✅ Multi-agent run finished (experimental: agents do not execute anything yet)');
     } catch (error) {
         vscode.window.showErrorMessage(`Multi-agent error: ${(error as Error).message}`);
     }
@@ -409,18 +459,22 @@ async function syncProjectTasks(): Promise<void> {
     vscode.window.showInformationMessage('📋 Syncing project tasks...');
 
     try {
-        const tasks = [];
+        // A failed fetch throws, so the plan is only rewritten with a complete result
+        const remote = [];
         if (configured.github) {
-            tasks.push(...await projectManager.fetchGitHubIssues());
+            remote.push(...await projectManager.fetchGitHubIssues());
         }
         if (configured.jira) {
-            tasks.push(...await projectManager.fetchJiraIssues());
+            remote.push(...await projectManager.fetchJiraIssues());
         }
 
-        await projectManager.updateFixPlan(tasks);
-        vscode.window.showInformationMessage(`✅ Synced ${tasks.length} tasks`);
+        // Keep what is already in @fix_plan.md and add what is new
+        const local = await projectManager.syncFromFixPlan();
+        const merged = projectManager.mergeTasks(local, remote);
+        await projectManager.updateFixPlan(merged);
+        vscode.window.showInformationMessage(`✅ Synced ${remote.length} tasks (${merged.length - local.length} new)`);
     } catch (error) {
-        vscode.window.showErrorMessage(`Sync failed: ${(error as Error).message}`);
+        vscode.window.showErrorMessage(`Sync failed, @fix_plan.md was left unchanged: ${(error as Error).message}`);
     }
 }
 
@@ -544,24 +598,33 @@ async function startWorkflowKitAutonomous(): Promise<void> {
 }
 
 // ============ Dashboard ============
-function openDashboard(context: vscode.ExtensionContext): void {
-    const stats = progressTracker.getStats();
-    const loopStatus = autonomousLoop.getStatus();
+/** Settings that the dashboard's experimental toggles store. Nothing else reads them yet. */
+const SCAFFOLD_TOGGLES = [
+    'mcpEnabled',
+    'memoryEnabled',
+    'codeReviewEnabled',
+    'voiceControlEnabled',
+    'multiAgentEnabled',
+    'notificationsEnabled',
+    'autoTestGeneration',
+] as const;
 
-    DashboardPanel.create(
-        context,
-        handleFeatureToggle,
-        handleSaveSettings
-    ).updateState({
-        autoAllEnabled: config.get('autoAllEnabled'),
-        multiTabEnabled: config.get('multiTabEnabled'),
+function openDashboard(context: vscode.ExtensionContext): void {
+    DashboardPanel.create(context, handleFeatureToggle, handleSaveSettings);
+    refreshDashboard();
+}
+
+/**
+ * Push the loop's live numbers to the dashboard and re-render it. Feature toggles are read from
+ * the configuration at render time, so the panel always shows what is actually set.
+ */
+function refreshDashboard(): void {
+    const loopStatus = autonomousLoop.getStatus();
+    DashboardPanel.current?.updateState({
         autopilotModeEnabled: loopStatus.running,
-        autoSwitchModels: config.get('autoSwitchModels'),
-        autoGitCommit: config.get('autoGitCommit'),
         loopCount: loopStatus.loopCount,
-        sessionStats: stats,
+        sessionStats: progressTracker.getStats(),
         duration: progressTracker.getDurationMinutes(),
-        usage: null,
     });
 }
 
@@ -591,8 +654,15 @@ async function handleFeatureToggle(feature: string, enabled: boolean): Promise<v
         case 'resetCircuitBreaker':
             resetCircuitBreaker();
             break;
+        default:
+            if ((SCAFFOLD_TOGGLES as readonly string[]).includes(feature)) {
+                await config.set(feature as typeof SCAFFOLD_TOGGLES[number], enabled);
+            } else {
+                log.warn(`Ignoring unknown dashboard toggle: ${feature}`);
+            }
     }
     updateStatusBar();
+    refreshDashboard();
 }
 
 async function handleSaveSettings(settings: Record<string, unknown>, silent = false): Promise<void> {
@@ -616,9 +686,16 @@ function updateStatusBar(): void {
 }
 
 // ============ Deactivation ============
-export function deactivate(): void {
-    stopPolling();
+/**
+ * VS Code waits for the returned promise, so the stop signal reaches the editor pages and the
+ * sockets are closed before the extension host moves on.
+ */
+export async function deactivate(): Promise<void> {
     autonomousLoop.stop('Extension deactivated');
+    cdpClient.disconnect();
+    reviewDiagnostics?.dispose();
+    reviewDiagnostics = undefined;
     statusBar?.dispose();
+    await stopPolling();
     log.info('Antigravity Workflow Kit deactivated');
 }

@@ -4,7 +4,6 @@
  * @module core/agent-orchestrator
  */
 
-import * as vscode from 'vscode';
 import { createLogger } from '../utils/logger';
 import { taskAnalyzer } from './task-analyzer';
 import { TaskType, TaskTypeValue } from '../utils/constants';

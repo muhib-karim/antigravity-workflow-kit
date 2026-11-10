@@ -10,18 +10,25 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('RateLimitHandler');
 
-// Rate limit detection patterns
+// Rate limit detection patterns. They are specific phrases on purpose: single words such as
+// "capacity" or "overloaded" also appear in ordinary answers about code.
 const RATE_LIMIT_PATTERNS = [
-    /rate\s*limit/i,
-    /model.*unavailable/i,
-    /try\s*again\s*later/i,
-    /usage\s*limit\s*reached/i,
-    /limit\s*exceeded/i,
-    /too\s*many\s*requests/i,
-    /quota\s*exceeded/i,
-    /capacity/i,
-    /overloaded/i,
+    /rate[\s-]*limit(?:ed)?\s+(?:reached|exceeded|hit|error)/i,
+    /(?:hit|reached|exceeded)\s+(?:the|your|a)\s+rate[\s-]*limit/i,
+    /you(?:'ve|\s+have|\s+are)\s+(?:been\s+)?rate[\s-]*limited/i,
+    /too\s+many\s+requests/i,
+    /usage\s+limit\s+(?:reached|exceeded)/i,
+    /\blimit\s+exceeded/i,
+    /quota\s+(?:exceeded|exhausted|reached)/i,
+    /exceeded\s+(?:your|the)\s+(?:usage\s+)?(?:quota|limit)/i,
+    /model\s+(?:is\s+)?(?:currently\s+|temporarily\s+)?(?:unavailable|overloaded|at\s+capacity)/i,
+    /(?:servers?|service)\s+(?:is|are)\s+(?:currently\s+)?(?:overloaded|at\s+capacity)/i,
+    /try\s+again\s+later/i,
 ];
+
+// A rate-limit notice is a short message. A long response is the model's answer, which may well
+// talk about rate limits without being one.
+const MAX_RATE_LIMIT_NOTICE_LENGTH = 500;
 
 // Model fallback priority
 const MODEL_FALLBACK_ORDER: ModelIdType[] = [
@@ -58,6 +65,7 @@ export class RateLimitHandler {
      */
     isRateLimited(response: string): boolean {
         if (!response) return false;
+        if (response.trim().length > MAX_RATE_LIMIT_NOTICE_LENGTH) return false;
 
         for (const pattern of RATE_LIMIT_PATTERNS) {
             if (pattern.test(response)) {
@@ -103,11 +111,19 @@ export class RateLimitHandler {
      * Set current model (for task-based switching)
      */
     setCurrentModel(model: ModelIdType): void {
-        if (this.state.rateLimitedModels.has(model)) {
-            log.warn(`${model} is rate limited, finding alternative`);
-            this.getNextModel();
-        } else {
+        if (!this.state.rateLimitedModels.has(model)) {
             this.state.currentModel = model;
+            return;
+        }
+
+        log.warn(`${model} is rate limited, finding alternative`);
+        // Keep the model in use if it still works. Only the requested model is known to be limited;
+        // going through getNextModel() here would mark the healthy current model as limited too.
+        if (!this.state.rateLimitedModels.has(this.state.currentModel)) return;
+
+        const fallback = MODEL_FALLBACK_ORDER.find((m) => !this.state.rateLimitedModels.has(m));
+        if (fallback) {
+            this.state.currentModel = fallback;
         }
     }
 

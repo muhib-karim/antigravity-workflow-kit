@@ -6,11 +6,11 @@
 // ============ Extension Metadata ============
 export const EXTENSION_NAME = 'antigravity-workflow-kit';
 export const EXTENSION_DISPLAY_NAME = 'Workflow Kit';
-export const VERSION = '2.0.0';
 
 // ============ CDP Ports ============
+// The relauncher starts the editor on CDP_PORT_MIN; a few ports above it are scanned as well
 export const CDP_PORT_MIN = 9000;
-export const CDP_PORT_MAX = 9030;
+export const CDP_PORT_MAX = 9010;
 export const CDP_POLL_INTERVAL = 5000;
 
 // ============ Loop Configuration ============
