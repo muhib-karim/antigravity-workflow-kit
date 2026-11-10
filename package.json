@@ -205,6 +205,41 @@
                     "minimum": 1,
                     "maximum": 10,
                     "description": "Exit after this many consecutive test-only loops"
+                },
+                "workflowKit.mcpEnabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Experimental scaffold: marks the in-process tool registry as enabled. It is not exposed to the agent yet."
+                },
+                "workflowKit.memoryEnabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Experimental scaffold: session memory. Nothing records to it yet."
+                },
+                "workflowKit.codeReviewEnabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Experimental scaffold: reserved for automatic code review. The Run Code Review command works regardless."
+                },
+                "workflowKit.voiceControlEnabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Experimental scaffold: voice command parser. Speech input is not connected yet."
+                },
+                "workflowKit.notificationsEnabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Experimental scaffold: Slack/Discord/webhook notifications. Nothing sends them yet."
+                },
+                "workflowKit.multiAgentEnabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Experimental scaffold: multi-agent orchestrator. Agents do not execute anything yet."
+                },
+                "workflowKit.autoTestGeneration": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Experimental scaffold: reserved for automatic test generation. The Generate Tests command works regardless."
                 }
             }
         }

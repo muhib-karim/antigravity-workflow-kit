@@ -63,11 +63,11 @@ npm run package      # antigravity-workflow-kit-<version>.vsix (uses docs/MARKET
 | **Model routing** | Keyword-based task classification (reasoning / frontend / quick / general) mapped to configurable preferred models. When the choice changes, the loop tries to select it in the editor's model picker and only announces a switch that worked | `src/core/task-analyzer.ts`, `model-selector.ts`, `src/providers/cdp-client.ts` |
 | **Code review** | 20 regex rules (security, quality, performance, bug patterns) with a score, shown as diagnostics for the current file | `src/core/code-reviewer.ts` |
 | **Test generator** | Writes a test-file skeleton for the current file | `src/core/test-generator.ts` |
-| **Project sync** | Pulls open GitHub issues or Jira tickets into `@fix_plan.md` (configured in `.workflow-kit/project-manager.json`) | `src/providers/project-manager.ts` |
+| **Project sync** | Adds open GitHub issues or Jira tickets to the tasks already in `@fix_plan.md` (configured in `.workflow-kit/project-manager.json`). The file is rewritten as a plain checklist, and left untouched if a fetch fails | `src/providers/project-manager.ts` |
 | **Dashboard** | Webview with the main toggles, model preferences, loop settings and session stats | `src/ui/dashboard.ts` |
 
-**Scaffolds, not features yet.** These modules exist and have commands or dashboard toggles, but nothing connects
-them to the agent or the loop: the MCP-style tool registry (`src/providers/mcp-server.ts`, in-process only), the
+**Scaffolds, not features yet.** These modules exist and have commands or dashboard switches (which only store a
+setting), but nothing connects them to the agent or the loop: the MCP-style tool registry (`src/providers/mcp-server.ts`, in-process only), the
 multi-agent orchestrator (`src/core/agent-orchestrator.ts`, task execution is a placeholder), voice commands
 (`src/ui/voice-controller.ts`, a command parser without speech input), notifications
 (`src/core/notification-manager.ts`), session memory (`src/core/memory-manager.ts`) and the custom model

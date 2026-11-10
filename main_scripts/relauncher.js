@@ -10,6 +10,19 @@ const path = require('path');
 const BASE_CDP_PORT = 9000;
 const CDP_FLAG = `--remote-debugging-port=${BASE_CDP_PORT}`;
 
+/**
+ * Quote a value for a POSIX shell. Inside single quotes nothing is expanded, so a folder named
+ * `proj $(something)` stays a folder name. (Double quotes still run $(...) and backticks.)
+ */
+function shellQuote(value) {
+    return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+/** A script file in a fresh directory only this user can access, instead of a fixed name in /tmp. */
+function privateScriptPath(fileName) {
+    return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-kit-relaunch-')), fileName);
+}
+
 class Relauncher {
     constructor(logger = null) {
         this.platform = os.platform();
@@ -416,7 +429,8 @@ open -a "${appBundle}" --args ${CDP_FLAG} "$@"
     }
 
     async _relaunchWindows(shortcut, workspaceFolders) {
-        const folderArgs = workspaceFolders.map(f => `"${f}"`).join(' ');
+        // In a batch file %NAME% is expanded even inside quotes; %% is a literal percent sign
+        const folderArgs = workspaceFolders.map(f => `"${String(f).replace(/%/g, '%%')}"`).join(' ');
         const ideName = this.getIDEName();
 
         let targetExe = shortcut.target || '';
@@ -478,12 +492,11 @@ del "%~f0" & exit
     }
 
     async _relaunchMacOS(shortcut, workspaceFolders) {
-        const folderArgs = workspaceFolders.map(f => `"${f}"`).join(' ');
+        const folderArgs = workspaceFolders.map(shellQuote).join(' ');
 
-        const scriptPath = path.join(os.tmpdir(), 'relaunch_ide.sh');
         const launchCommand = shortcut.type === 'wrapper'
-            ? `"${shortcut.path}" ${folderArgs}`
-            : `open -a "${shortcut.path}" --args ${CDP_FLAG} ${folderArgs}`;
+            ? `${shellQuote(shortcut.path)} ${folderArgs}`
+            : `open -a ${shellQuote(shortcut.path)} --args ${CDP_FLAG} ${folderArgs}`;
 
         const scriptContent = `#!/bin/bash
 sleep 2
@@ -491,6 +504,7 @@ ${launchCommand}
 `;
 
         try {
+            const scriptPath = privateScriptPath('relaunch_ide.sh');
             fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
             this.log(`Created macOS relaunch script: ${scriptPath}`);
             this.log(`Shortcut type: ${shortcut.type}`);
@@ -514,7 +528,7 @@ ${launchCommand}
     }
 
     async _relaunchLinux(shortcut, workspaceFolders) {
-        const folderArgs = workspaceFolders.map(f => `"${f}"`).join(' ');
+        const folderArgs = workspaceFolders.map(shellQuote).join(' ');
         const ideName = this.getIDEName().toLowerCase();
 
         let execCommand = '';
@@ -523,7 +537,6 @@ ${launchCommand}
             execCommand = shortcut.execLine.replace(/%[fFuUdDnNickvm]/g, '').trim();
         }
 
-        const scriptPath = path.join(os.tmpdir(), 'relaunch_ide.sh');
         const desktopFileName = path.basename(shortcut.path, '.desktop');
 
         const scriptContent = `#!/bin/bash
@@ -531,7 +544,7 @@ sleep 2
 
 # Method 1: gio launch (most reliable for .desktop files)
 if command -v gio &> /dev/null; then
-    gio launch "${shortcut.path}" ${folderArgs} 2>/dev/null && exit 0
+    gio launch ${shellQuote(shortcut.path)} ${folderArgs} 2>/dev/null && exit 0
 fi
 
 # Method 2: Direct execution from Exec line
@@ -539,7 +552,7 @@ ${execCommand ? `${execCommand} ${folderArgs} 2>/dev/null && exit 0` : '# No Exe
 
 # Method 3: gtk-launch fallback
 if command -v gtk-launch &> /dev/null; then
-    gtk-launch "${desktopFileName}" ${folderArgs} 2>/dev/null && exit 0
+    gtk-launch ${shellQuote(desktopFileName)} ${folderArgs} 2>/dev/null && exit 0
 fi
 
 # Method 4: Try to find and run the IDE binary directly
@@ -555,6 +568,7 @@ exit 1
 `;
 
         try {
+            const scriptPath = privateScriptPath('relaunch_ide.sh');
             fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
             this.log(`Created Linux relaunch script: ${scriptPath}`);
             this.log(`Desktop file: ${shortcut.path}`);
@@ -641,7 +655,7 @@ exit 1
         this.log('Showing relaunch prompt');
 
         const choice = await vscode.window.showInformationMessage(
-            'auto-all-Antigravity requires a quick one-time setup to enable background mode. This will restart your IDE with necessary permissions.',
+            `Workflow Kit auto-accept needs the editor to run with a remote-debugging port (${CDP_FLAG}). "Setup & Restart" adds that flag to your editor shortcut and restarts the editor.`,
             { modal: false },
             'Setup & Restart',
             'Not Now'
@@ -671,4 +685,4 @@ exit 1
     }
 }
 
-module.exports = { Relauncher, BASE_CDP_PORT };
+module.exports = { Relauncher, BASE_CDP_PORT, shellQuote };

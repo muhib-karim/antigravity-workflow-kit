@@ -100,6 +100,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Set up autonomous loop status callback
     autonomousLoop.setStatusCallback((status) => {
         updateStatusBar();
+        refreshDashboard();
         if (!status.running) {
             config.set('autopilotModeEnabled', false);
         }
@@ -227,10 +228,10 @@ async function toggleMcp(): Promise<void> {
 
     if (!current) {
         log.info('MCP Server enabled');
-        vscode.window.showInformationMessage('✅ MCP Server: ON - AI tools now available');
+        vscode.window.showInformationMessage('✅ MCP tool registry: ON (experimental: not exposed to the agent yet)');
     } else {
         log.info('MCP Server disabled');
-        vscode.window.showInformationMessage('⏸️ MCP Server: OFF');
+        vscode.window.showInformationMessage('⏸️ MCP tool registry: OFF');
     }
 }
 
@@ -363,7 +364,7 @@ async function startMultiAgent(): Promise<void> {
 
     try {
         await agentOrchestrator.coordinateAgents(task);
-        vscode.window.showInformationMessage('✅ Multi-agent task initiated');
+        vscode.window.showInformationMessage('✅ Multi-agent run finished (experimental: agents do not execute anything yet)');
     } catch (error) {
         vscode.window.showErrorMessage(`Multi-agent error: ${(error as Error).message}`);
     }
@@ -440,18 +441,22 @@ async function syncProjectTasks(): Promise<void> {
     vscode.window.showInformationMessage('📋 Syncing project tasks...');
 
     try {
-        const tasks = [];
+        // A failed fetch throws, so the plan is only rewritten with a complete result
+        const remote = [];
         if (configured.github) {
-            tasks.push(...await projectManager.fetchGitHubIssues());
+            remote.push(...await projectManager.fetchGitHubIssues());
         }
         if (configured.jira) {
-            tasks.push(...await projectManager.fetchJiraIssues());
+            remote.push(...await projectManager.fetchJiraIssues());
         }
 
-        await projectManager.updateFixPlan(tasks);
-        vscode.window.showInformationMessage(`✅ Synced ${tasks.length} tasks`);
+        // Keep what is already in @fix_plan.md and add what is new
+        const local = await projectManager.syncFromFixPlan();
+        const merged = projectManager.mergeTasks(local, remote);
+        await projectManager.updateFixPlan(merged);
+        vscode.window.showInformationMessage(`✅ Synced ${remote.length} tasks (${merged.length - local.length} new)`);
     } catch (error) {
-        vscode.window.showErrorMessage(`Sync failed: ${(error as Error).message}`);
+        vscode.window.showErrorMessage(`Sync failed, @fix_plan.md was left unchanged: ${(error as Error).message}`);
     }
 }
 
@@ -575,24 +580,33 @@ async function startWorkflowKitAutonomous(): Promise<void> {
 }
 
 // ============ Dashboard ============
-function openDashboard(context: vscode.ExtensionContext): void {
-    const stats = progressTracker.getStats();
-    const loopStatus = autonomousLoop.getStatus();
+/** Settings that the dashboard's experimental toggles store. Nothing else reads them yet. */
+const SCAFFOLD_TOGGLES = [
+    'mcpEnabled',
+    'memoryEnabled',
+    'codeReviewEnabled',
+    'voiceControlEnabled',
+    'multiAgentEnabled',
+    'notificationsEnabled',
+    'autoTestGeneration',
+] as const;
 
-    DashboardPanel.create(
-        context,
-        handleFeatureToggle,
-        handleSaveSettings
-    ).updateState({
-        autoAllEnabled: config.get('autoAllEnabled'),
-        multiTabEnabled: config.get('multiTabEnabled'),
+function openDashboard(context: vscode.ExtensionContext): void {
+    DashboardPanel.create(context, handleFeatureToggle, handleSaveSettings);
+    refreshDashboard();
+}
+
+/**
+ * Push the loop's live numbers to the dashboard and re-render it. Feature toggles are read from
+ * the configuration at render time, so the panel always shows what is actually set.
+ */
+function refreshDashboard(): void {
+    const loopStatus = autonomousLoop.getStatus();
+    DashboardPanel.current?.updateState({
         autopilotModeEnabled: loopStatus.running,
-        autoSwitchModels: config.get('autoSwitchModels'),
-        autoGitCommit: config.get('autoGitCommit'),
         loopCount: loopStatus.loopCount,
-        sessionStats: stats,
+        sessionStats: progressTracker.getStats(),
         duration: progressTracker.getDurationMinutes(),
-        usage: null,
     });
 }
 
@@ -622,8 +636,15 @@ async function handleFeatureToggle(feature: string, enabled: boolean): Promise<v
         case 'resetCircuitBreaker':
             resetCircuitBreaker();
             break;
+        default:
+            if ((SCAFFOLD_TOGGLES as readonly string[]).includes(feature)) {
+                await config.set(feature as typeof SCAFFOLD_TOGGLES[number], enabled);
+            } else {
+                log.warn(`Ignoring unknown dashboard toggle: ${feature}`);
+            }
     }
     updateStatusBar();
+    refreshDashboard();
 }
 
 async function handleSaveSettings(settings: Record<string, unknown>, silent = false): Promise<void> {

@@ -29,6 +29,11 @@ describe('package.json manifest', () => {
         }
     });
 
+    it('declares every DEFAULT_CONFIG key (VS Code rejects updates to settings that are not declared)', () => {
+        const declared = Object.keys(pkg.contributes.configuration.properties).map((k: string) => k.replace('workflowKit.', ''));
+        expect(Object.keys(DEFAULT_CONFIG).filter((key) => !declared.includes(key))).toEqual([]);
+    });
+
     it('has a display label for every model ID offered in settings', () => {
         const props = pkg.contributes.configuration.properties as Record<string, { enum?: string[] }>;
         const modelIds = Object.entries(props)

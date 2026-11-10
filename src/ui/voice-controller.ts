@@ -237,7 +237,7 @@ export class VoiceController {
             this.isListening = true;
             log.info('Voice listening started');
 
-            vscode.window.showInformationMessage('🎤 Workflow Kit Voice Control: Listening...');
+            vscode.window.showInformationMessage('🎤 Workflow Kit Voice Control: enabled (experimental: speech input is not connected yet)');
 
             // Note: Actual speech integration would use VS Code Speech API
             // This is a placeholder for the integration point
