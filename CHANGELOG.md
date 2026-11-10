@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Packaging:** the VSIX now includes the `ws` module that `main_scripts/cdp-handler.js` requires. Without it the handler failed to load (`Cannot find module 'ws'`) and Auto-All silently did nothing; the published 3.0.2 package has the same contents. `.vscodeignore` is now an allow-list, so coverage reports, source maps and local tool settings are no longer packaged.
+- A CDP handler that fails to load is now reported with an error notification instead of only a log line, and no longer prevents the rest of the extension from starting.
 - Model IDs in `src/utils/constants.ts` now match the IDs declared in `package.json` settings (e.g. `claude-opus-4.5-thinking`), so display labels and rate-limit model fallback resolve the configured model.
 - `npm run lint` now has an ESLint configuration; CI workflow now triggers on the `master` branch.
 - `npm run package` uses `docs/MARKETPLACE.md` as the VSIX README; legacy `out/` and root `extension.js` are no longer packaged.

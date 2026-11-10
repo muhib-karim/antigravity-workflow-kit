@@ -1,23 +1,11 @@
-.vscode
-.vscode-test
-node_modules
-src/**/*.ts
-!src/**/*.d.ts
-*.map
-*.vsix
-.gitignore
-.github
-*.tsbuildinfo
-tests
-scripts
-tsconfig.json
-esbuild.config.js
-.eslintrc.json
-.prettierrc
-CONTRIBUTING.md
-README.md
-out/**
-extension.js
-vitest.config.ts
-docs/**
-media/icon_backup.png
+# Allow-list: ignore everything, then re-include only what the extension needs at runtime.
+# vsce always adds package.json and the README passed with --readme-path.
+# tests/unit/packaging.test.ts checks the resulting file list.
+**
+!dist/extension.js
+!main_scripts/**
+!node_modules/ws/**
+!media/icon.png
+!media/background-mode.png
+!LICENSE
+!CHANGELOG.md

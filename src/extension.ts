@@ -10,6 +10,7 @@ import { StatusBarManager } from './ui/status-bar';
 import { DashboardPanel } from './ui/dashboard';
 import { config } from './utils/config';
 import { createLogger } from './utils/logger';
+import { CDP_PORT_MIN } from './utils/constants';
 import { autonomousLoop } from './core/autonomous-loop';
 import { circuitBreaker } from './core/circuit-breaker';
 import { progressTracker } from './core/progress-tracker';
@@ -45,15 +46,15 @@ export function activate(context: vscode.ExtensionContext): void {
     else if (appName.toLowerCase().includes('antigravity')) currentIDE = 'Antigravity';
     log.info(`Detected IDE: ${currentIDE}`);
 
-    // Initialize CDP handler from main_scripts (SAME AS OLD EXTENSION)
+    // Initialize the CDP handler from main_scripts (plain JS, loaded at runtime).
+    // Auto-accept cannot work without it, so a load failure is shown to the user instead of only logged.
+    cdpHandler = null;
+    relauncher = null;
     try {
         const cdpHandlerPath = path.join(context.extensionPath, 'main_scripts', 'cdp-handler.js');
-        const relauncherPath = path.join(context.extensionPath, 'main_scripts', 'relauncher.js');
-
         const { CDPHandler } = require(cdpHandlerPath);
-        const { Relauncher, BASE_CDP_PORT } = require(relauncherPath);
 
-        cdpHandler = new CDPHandler(BASE_CDP_PORT, BASE_CDP_PORT + 10, log.info.bind(log));
+        cdpHandler = new CDPHandler(CDP_PORT_MIN, CDP_PORT_MIN + 10, log.info.bind(log));
 
         // CRITICAL: Set Pro status like old extension (enables all features)
         if (cdpHandler.setProStatus) {
@@ -66,10 +67,24 @@ export function activate(context: vscode.ExtensionContext): void {
             cdpHandler.setLogFile(logPath);
         } catch { }
 
-        relauncher = new Relauncher(log.info.bind(log));
-        log.info('CDP handler and relauncher initialized with Pro status');
+        log.info('CDP handler initialized with Pro status');
     } catch (err) {
-        log.warn(`Failed to load CDP modules: ${(err as Error).message}`);
+        cdpHandler = null;
+        const reason = (err as Error).message.split('\n')[0];
+        log.error(`Failed to load the CDP handler: ${reason}`);
+        vscode.window.showErrorMessage(
+            `Workflow Kit: auto-accept is unavailable because its CDP handler failed to load (${reason}). ` +
+            'Reinstall the extension or report this issue.'
+        );
+    }
+
+    // The relauncher is only needed to offer a restart with the remote-debugging port.
+    try {
+        const relauncherPath = path.join(context.extensionPath, 'main_scripts', 'relauncher.js');
+        const { Relauncher } = require(relauncherPath);
+        relauncher = new Relauncher(log.info.bind(log));
+    } catch (err) {
+        log.warn(`Failed to load the relauncher: ${(err as Error).message.split('\n')[0]}`);
     }
 
     // Initialize status bar
