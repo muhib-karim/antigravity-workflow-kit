@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The breaker counts errors and repeated responses separately, resets the error count after a clean loop, and no longer counts one bad loop twice. It also keeps its `totalOpens` count across resets.
 - Stopping the loop and starting it again while a response was pending no longer leaves two loops running; a loop that throws no longer stays "running" forever; stopping during the pause between loops no longer leaves the previous run hanging.
 - A prompt that cannot be injected now counts as a failure, so the documented "3 consecutive failures" stop is reachable.
+- Progress is now the difference in git state between two loops (a new commit, a file that became modified or untracked, further edits to a modified file). It used to be the number of dirty files, so a loop that committed its work looked stuck and a tree that was already dirty looked like permanent progress.
+- Model routing now selects the model in the editor's model picker when the choice changes, and announces and counts a switch only when it worked. `switchModel` always failed before: the injected snippet contained a TypeScript cast (a syntax error in the page) and searched for the model id instead of its label.
+- After one model hit a rate limit, every later loop marked another healthy model as rate limited until none were left. `setCurrentModel` now keeps the model in use.
+- Rate-limit detection no longer fires on ordinary answers that mention "capacity", "overloaded" or a rate limiter; it looks for specific phrases in short messages.
 - A CDP handler that fails to load is now reported with an error notification instead of only a log line, and no longer prevents the rest of the extension from starting.
 - Model IDs in `src/utils/constants.ts` now match the IDs declared in `package.json` settings (e.g. `claude-opus-4.5-thinking`), so display labels and rate-limit model fallback resolve the configured model.
 - `npm run lint` now has an ESLint configuration; CI workflow now triggers on the `master` branch.

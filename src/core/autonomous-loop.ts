@@ -18,6 +18,7 @@ import { exitDetector } from './exit-detector';
 import { recoveryManager } from './recovery-strategies';
 import { cdpClient } from '../providers/cdp-client';
 import { config } from '../utils/config';
+import { MODEL_LABELS } from '../utils/constants';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('AutonomousLoop');
@@ -187,15 +188,34 @@ export class AutonomousLoop {
             if (config.get('autoSwitchModels')) {
                 const selection = modelSelector.selectForTask(this.currentTask);
                 rateLimitHandler.setCurrentModel(selection.modelId);
-                log.info(`Model: ${selection.modelDisplayName} (${selection.reasoning})`);
+                // Not necessarily the preferred model: that one may be rate limited
+                const target = rateLimitHandler.getCurrentModel();
+                log.info(`Model: ${MODEL_LABELS[target] || target} (${selection.reasoning})`);
 
-                // Only show notification if model actually changed
-                if (this.previousModel !== selection.modelId) {
-                    if (this.previousModel !== null) {
-                        modelSelector.showSwitchNotification(selection);
+                // Select it in the editor whenever it changes, including on the first loop (the
+                // picker can be on anything). One attempt per change; a switch is only announced
+                // and counted when it really happened.
+                if (this.previousModel !== target) {
+                    const firstLoop = this.previousModel === null;
+                    this.previousModel = target;
+
+                    if (!cdpClient.isConnected()) {
+                        await cdpClient.connect();
+                        if (!this.isCurrent(runId)) return;
+                    }
+                    const switched = await cdpClient.switchModel(target);
+                    if (!this.isCurrent(runId)) return;
+
+                    if (!switched) {
+                        log.warn(`Could not select ${target} in the editor; continuing with the model that is active`);
+                    } else if (!firstLoop) {
+                        if (target === selection.modelId) {
+                            modelSelector.showSwitchNotification(selection);
+                        } else {
+                            this.showNotification(`🔄 Workflow Kit: switched to ${MODEL_LABELS[target] || target}`);
+                        }
                         progressTracker.recordModelSwitch();
                     }
-                    this.previousModel = selection.modelId;
                 }
             }
 
@@ -361,10 +381,12 @@ export class AutonomousLoop {
             // Check for rate limit in response
             if (rateLimitHandler.isRateLimited(response)) {
                 log.warn('Rate limit detected, switching model');
-                progressTracker.recordModelSwitch();
                 const nextModel = rateLimitHandler.getNextModel();
                 if (nextModel) {
-                    await cdpClient.switchModel(nextModel);
+                    this.previousModel = nextModel;
+                    if (await cdpClient.switchModel(nextModel)) {
+                        progressTracker.recordModelSwitch();
+                    }
                 }
                 return { success: false, response }; // Retry with new model
             }

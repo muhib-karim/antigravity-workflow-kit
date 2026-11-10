@@ -7,6 +7,7 @@
 import * as http from 'http';
 import WebSocket from 'ws';
 import { createLogger } from '../utils/logger';
+import { MODEL_LABELS } from '../utils/constants';
 
 const log = createLogger('CDPClient');
 
@@ -262,36 +263,45 @@ export class CDPClient {
     }
 
     /**
-     * Switch model in Antigravity
+     * Select a model in Antigravity's model picker.
+     * Returns true only when the model is selected (or already was).
      */
     async switchModel(modelId: string): Promise<boolean> {
         if (!this.connected) return false;
 
+        // The picker shows display names ("Gemini 3 Flash"), not ids ("gemini-3-flash")
+        const label = (MODEL_LABELS[modelId] || modelId).toLowerCase();
+
         try {
+            // Plain JavaScript only: this string is evaluated in the editor page.
             const result = await this.evaluate(`
-        (function() {
-          // Find model selector
+        (async function() {
+          const wanted = ${JSON.stringify(label)};
           const selector = document.querySelector('[data-testid="model-selector"], .model-dropdown, button[aria-label*="model"]');
           if (!selector) return { success: false, error: 'No model selector' };
-          
-          // Click to open
-          selector.click();
-          
-          // Wait and find model option
-          setTimeout(() => {
-            const options = document.querySelectorAll('[role="option"], .model-option, li[data-model]');
-            for (const opt of options) {
-              if (opt.textContent?.toLowerCase().includes('${modelId.toLowerCase()}')) {
-                (opt as HTMLElement).click();
-                return;
-              }
-            }
-          }, 500);
-          
-          return { success: true };
-        })()
-      `) as { success: boolean };
+          if ((selector.textContent || '').toLowerCase().includes(wanted)) return { success: true };
 
+          // Open the picker and give it a moment to render its options
+          selector.click();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+
+          const options = document.querySelectorAll('[role="option"], .model-option, li[data-model]');
+          for (const opt of options) {
+            if ((opt.textContent || '').toLowerCase().includes(wanted)) {
+              opt.click();
+              return { success: true };
+            }
+          }
+
+          // Not offered: close the picker again
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          return { success: false, error: 'Model not found in the picker' };
+        })()
+      `) as { success: boolean; error?: string } | undefined;
+
+            if (!result?.success) {
+                log.warn(`Model switch to ${modelId} failed: ${result?.error || 'no result'}`);
+            }
             return result?.success || false;
         } catch {
             return false;

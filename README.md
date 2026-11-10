@@ -58,9 +58,9 @@ npm run package      # antigravity-workflow-kit-<version>.vsix (uses docs/MARKET
 | **Banned commands** | Deny-list (`workflowKit.bannedCommands`) plus built-in destructive patterns, checked before any approval button is clicked. See [Safety model](#safety-model) | `main_scripts/banned-commands.js` (also used by `src/core/code-reviewer.ts`) |
 | **Multi-Tab** | Rotates across conversation tabs, with a background overlay | `main_scripts/full_cdp_script.js` |
 | **Autonomous loop** *(beta)* | Sends the first unchecked `- [ ]` item of `@fix_plan.md` (or a goal) to the chat each iteration, with a call limit per hour, a per-loop timeout and a maximum number of loops | `src/core/autonomous-loop.ts`, `rate-limiter.ts`, `src/providers/cdp-client.ts` |
-| **Circuit breaker** | CLOSED → HALF_OPEN → OPEN after 3 loops without file changes, 5 consecutive errors or 5 repeated responses. The loop then tries up to 3 recovery strategies, resetting the breaker each time, and stops when they are used up | `src/core/circuit-breaker.ts`, `recovery-strategies.ts` |
+| **Circuit breaker** | CLOSED → HALF_OPEN → OPEN after 3 loops without workspace changes, 5 consecutive errors or 5 repeated responses. The loop then tries up to 3 recovery strategies, resetting the breaker each time, and stops when they are used up | `src/core/circuit-breaker.ts`, `recovery-strategies.ts` |
 | **Exit detection** | Stops on completion phrases, a response repeated 3 times, 3 consecutive failures, or several test-only loops in a row | `src/core/exit-detector.ts`, `test-loop-detector.ts` |
-| **Model routing** | Keyword-based task classification (reasoning / frontend / quick / general) mapped to configurable preferred models. The choice is shown in a notification; selecting it in the editor's model picker is not wired up yet | `src/core/task-analyzer.ts`, `model-selector.ts` |
+| **Model routing** | Keyword-based task classification (reasoning / frontend / quick / general) mapped to configurable preferred models. When the choice changes, the loop tries to select it in the editor's model picker and only announces a switch that worked | `src/core/task-analyzer.ts`, `model-selector.ts`, `src/providers/cdp-client.ts` |
 | **Code review** | 20 regex rules (security, quality, performance, bug patterns) with a score, shown as diagnostics for the current file | `src/core/code-reviewer.ts` |
 | **Test generator** | Writes a test-file skeleton for the current file | `src/core/test-generator.ts` |
 | **Project sync** | Pulls open GitHub issues or Jira tickets into `@fix_plan.md` (configured in `.workflow-kit/project-manager.json`) | `src/providers/project-manager.ts` |
@@ -251,8 +251,9 @@ pushed, then creates the GitHub Release and publishes.
 
 - **Depends on Antigravity's internal UI.** Buttons, the chat input and responses are found through DOM selectors
   over CDP, so an Antigravity update can break auto-accept or the autonomous loop without warning.
-- **The autonomous loop is beta.** It measures progress as files changed according to `git diff --name-only`, so
-  it needs a git repository, and a loop that commits everything it changes looks like no progress.
+- **The autonomous loop is beta.** It measures progress by comparing the git state of the workspace between
+  loops (new commits, changed or new files), so it needs a git repository; without one every loop counts as no
+  progress and the circuit breaker stops the session.
 - **Use auto-accept with care.** See the [safety model](#safety-model).
 - **Usage meters in the dashboard are Windows-only**; they are read from the local Antigravity language server
   with `wmic` and `netstat`.

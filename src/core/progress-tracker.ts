@@ -29,6 +29,8 @@ export class ProgressTracker {
     private history: LoopProgress[] = [];
     private stats: SessionStats = { ...INITIAL_SESSION_STATS };
     private workspaceRoot: string | null = null;
+    /** Workspace state after the previous loop (or at session start); null when git is not usable */
+    private snapshot: Promise<Set<string> | null> = Promise.resolve(null);
 
     constructor() {
         const folders = vscode.workspace.workspaceFolders;
@@ -43,6 +45,8 @@ export class ProgressTracker {
     startSession(): void {
         this.history = [];
         this.stats = { ...INITIAL_SESSION_STATS, startTime: Date.now() };
+        // Baseline, so that what the first loop changes counts as progress
+        this.snapshot = this.takeSnapshot();
         log.info('Session started');
     }
 
@@ -76,25 +80,51 @@ export class ProgressTracker {
             this.history.shift();
         }
 
-        log.info(`Loop ${progress.loopNumber}: ${filesChanged} files, ${progress.responseLength} chars`);
+        log.info(`Loop ${progress.loopNumber}: ${filesChanged} workspace changes, ${progress.responseLength} chars`);
         return progress;
     }
 
     /**
-     * Get files changed since last loop
+     * Number of workspace changes since the previous loop: a new commit, a file that became
+     * modified/added/deleted/untracked, or further edits to a file that was already modified.
+     *
+     * It compares two snapshots instead of counting dirty files, so a loop that commits its work
+     * still counts as progress and a tree that was already dirty when the session started does not.
+     * Returns 0 when the workspace is not a git repository.
      */
     private async getFilesChanged(): Promise<number> {
-        if (!this.workspaceRoot) return 0;
+        const previous = await this.snapshot;
+        const current = await this.takeSnapshot();
+        this.snapshot = Promise.resolve(current);
 
+        if (!previous || !current) return 0;
+
+        let changes = 0;
+        for (const entry of current) if (!previous.has(entry)) changes++;
+        for (const entry of previous) if (!current.has(entry)) changes++;
+        return changes;
+    }
+
+    /**
+     * Describe the workspace as a set of lines: HEAD, `git status --porcelain` and the per-file
+     * added/removed line counts against HEAD.
+     */
+    private async takeSnapshot(): Promise<Set<string> | null> {
+        if (!this.workspaceRoot) return null;
+
+        const options = { cwd: this.workspaceRoot, timeout: 5000, maxBuffer: 10 * 1024 * 1024 };
         try {
-            const { stdout } = await execAsync('git diff --name-only', {
-                cwd: this.workspaceRoot,
-                timeout: 5000,
-            });
-            const files = stdout.trim().split('\n').filter(Boolean);
-            return files.length;
+            const status = (await execAsync('git status --porcelain', options)).stdout;
+            // Both fail in a repository without commits; that is fine
+            const head = await execAsync('git rev-parse HEAD', options).then((r) => r.stdout.trim(), () => 'none');
+            const numstat = await execAsync('git diff HEAD --numstat', options).then((r) => r.stdout, () => '');
+
+            const entries = new Set<string>([`head ${head}`]);
+            for (const line of status.split('\n')) if (line.trim()) entries.add(`status ${line}`);
+            for (const line of numstat.split('\n')) if (line.trim()) entries.add(`diff ${line}`);
+            return entries;
         } catch {
-            return 0;
+            return null; // not a git repository, or git is not installed
         }
     }
 

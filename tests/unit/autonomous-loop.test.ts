@@ -10,10 +10,14 @@ import { join } from 'path';
 
 type VsMock = typeof import('../mocks/vscode');
 
-const git = { changedFiles: [] as string[] };
+/** Fake repository state: bump `head` for a commit, change `status` for uncommitted edits */
+const git = { head: 0, status: [] as string[] };
 vi.mock('child_process', () => ({
-    exec: (_cmd: string, _opts: unknown, cb: (e: Error | null, out: { stdout: string; stderr: string }) => void) =>
-        cb(null, { stdout: git.changedFiles.join('\n'), stderr: '' }),
+    exec: (cmd: string, _opts: unknown, cb: (e: Error | null, out: { stdout: string; stderr: string }) => void) => {
+        if (cmd.startsWith('git rev-parse')) return cb(null, { stdout: `commit-${git.head}\n`, stderr: '' });
+        if (cmd.startsWith('git status')) return cb(null, { stdout: git.status.join('\n'), stderr: '' });
+        return cb(null, { stdout: '', stderr: '' }); // git diff HEAD --numstat
+    },
 }));
 
 const cdp = {
@@ -38,11 +42,18 @@ async function loadLoop() {
     return mod.autonomousLoop;
 }
 
-/** Distinct responses without exit, test-only or rate-limit phrases */
-function distinctResponses() {
+type Work = 'none' | 'commit' | 'edit';
+
+/**
+ * Distinct responses without exit, test-only or rate-limit phrases. While "responding", the fake
+ * model either does nothing, commits its work, or leaves a new uncommitted edit.
+ */
+function distinctResponses(work: Work = 'none') {
     let n = 0;
     cdp.waitForResponse.mockImplementation(async () => {
         n++;
+        if (work === 'commit') git.head++;
+        if (work === 'edit') git.status = [...git.status, ` M src/file-${n}.ts`];
         return `Step ${n}: examined module number ${n} and wrote down approach ${n} for the parser.`;
     });
 }
@@ -71,7 +82,8 @@ function loggedErrors(): string[] {
 beforeEach(() => {
     vi.resetModules();
     vi.useFakeTimers();
-    git.changedFiles = [];
+    git.head = 0;
+    git.status = [];
     for (const fn of Object.values(cdp)) fn.mockReset();
     cdp.isConnected.mockImplementation(() => true);
     cdp.connect.mockImplementation(async () => true);
@@ -91,8 +103,7 @@ afterEach(() => {
 describe('AutonomousLoop with the real circuit breaker', () => {
     it('halts when no loop ever makes progress: 3 loops, then at most 3 recovery attempts', async () => {
         const loop = await loadLoop();
-        distinctResponses();
-        git.changedFiles = [];
+        distinctResponses('none');
 
         void loop.start({ goal: 'Ship the parser', maxLoops: 40, loopIntervalSeconds: 1 });
         await runUntilStopped(loop);
@@ -104,10 +115,9 @@ describe('AutonomousLoop with the real circuit breaker', () => {
         expect(notifications().filter((m) => m.includes('🔄'))).toHaveLength(3);
     });
 
-    it('does not trip the breaker while every loop changes files and responses differ', async () => {
+    it.each(['commit', 'edit'] as const)('does not trip the breaker while every loop makes progress (%s) and responses differ', async (work) => {
         const loop = await loadLoop();
-        distinctResponses();
-        git.changedFiles = ['src/a.ts', 'src/b.ts'];
+        distinctResponses(work);
 
         void loop.start({ goal: 'Ship the parser', maxLoops: 10, loopIntervalSeconds: 1 });
         await runUntilStopped(loop);
@@ -121,8 +131,7 @@ describe('AutonomousLoop with the real circuit breaker', () => {
     it('opens on the same response repeated 5 times even though files keep changing', async () => {
         const loop = await loadLoop();
         // identical every time, and short enough that the exit detector's own stagnation check is not what stops it
-        cdp.waitForResponse.mockImplementation(async () => 'Thinking about it.');
-        git.changedFiles = ['src/a.ts'];
+        cdp.waitForResponse.mockImplementation(async () => { git.head++; return 'Thinking about it.'; });
         const exit = await import('../../src/core/exit-detector');
         vi.spyOn(exit.exitDetector, 'checkResponse').mockReturnValue({ shouldExit: false, confidence: 0 });
 
@@ -147,7 +156,6 @@ describe('AutonomousLoop with the real circuit breaker', () => {
         const loop = await loadLoop();
         const pending: Array<(response: string) => void> = [];
         cdp.waitForResponse.mockImplementation(() => new Promise<string>((resolve) => pending.push(resolve)));
-        git.changedFiles = ['src/a.ts'];
 
         void loop.start({ goal: 'Task A', maxLoops: 40, loopIntervalSeconds: 1 });
         await vi.advanceTimersByTimeAsync(10);
@@ -169,8 +177,7 @@ describe('AutonomousLoop with the real circuit breaker', () => {
 
     it('lets start() settle when stop() is called during the pause between loops', async () => {
         const loop = await loadLoop();
-        distinctResponses();
-        git.changedFiles = ['src/a.ts'];
+        distinctResponses('commit');
 
         let settled = false;
         void loop.start({ goal: 'Ship the parser', maxLoops: 40, loopIntervalSeconds: 30 }).then(() => { settled = true; });
@@ -194,8 +201,7 @@ describe('AutonomousLoop with the real circuit breaker', () => {
 
         // and it can be started again
         cdp.isConnected.mockImplementation(() => true);
-        distinctResponses();
-        git.changedFiles = ['src/a.ts'];
+        distinctResponses('commit');
         void loop.start({ goal: 'Ship the parser', maxLoops: 1, loopIntervalSeconds: 1 });
         await runUntilStopped(loop);
         expect(cdp.injectPrompt).toHaveBeenCalledTimes(1);
@@ -203,8 +209,7 @@ describe('AutonomousLoop with the real circuit breaker', () => {
 
     it('starts every session with a fresh recovery budget', async () => {
         const loop = await loadLoop();
-        distinctResponses();
-        git.changedFiles = [];
+        distinctResponses('none');
 
         void loop.start({ goal: 'Ship the parser', maxLoops: 40, loopIntervalSeconds: 1 });
         await runUntilStopped(loop);
@@ -215,5 +220,83 @@ describe('AutonomousLoop with the real circuit breaker', () => {
 
         expect(notifications().filter((m) => m.includes('🔄'))).toHaveLength(3);
         expect(loop.getStatus().loopCount).toBe(12);
+    });
+});
+
+describe('AutonomousLoop progress detection', () => {
+    it('does not mistake a tree that was already dirty when the session started for progress', async () => {
+        const loop = await loadLoop();
+        git.status = [' M src/untouched.ts', '?? notes.txt']; // the user's own uncommitted work
+        distinctResponses('none');
+
+        void loop.start({ goal: 'Ship the parser', maxLoops: 40, loopIntervalSeconds: 1 });
+        await runUntilStopped(loop);
+
+        expect(loop.getStatus().loopCount).toBe(12);
+        expect(stopReasons()[0]).not.toMatch(/Max loops/);
+    });
+
+    it('hands the recovery budget back once a loop makes progress again', async () => {
+        const loop = await loadLoop();
+        let n = 0;
+        cdp.waitForResponse.mockImplementation(async () => {
+            n++;
+            if (n % 4 === 0) git.head++; // progress on every 4th loop, i.e. right after each recovery attempt
+            return `Step ${n}: examined module number ${n} and wrote down approach ${n} for the parser.`;
+        });
+
+        void loop.start({ goal: 'Ship the parser', maxLoops: 30, loopIntervalSeconds: 1 });
+        await runUntilStopped(loop);
+
+        // never more than one recovery in a row, so the budget of 3 is never used up
+        expect(stopReasons()).toEqual(['Workflow Kit: Max loops reached (30)']);
+    });
+});
+
+describe('AutonomousLoop model routing', () => {
+    it('selects the routed model in the editor, starting with the first loop', async () => {
+        const loop = await loadLoop();
+        distinctResponses('commit');
+
+        void loop.start({ goal: 'Restyle the button layout css', maxLoops: 2, loopIntervalSeconds: 1 });
+        await runUntilStopped(loop);
+
+        expect(cdp.switchModel).toHaveBeenCalledTimes(1); // once per change, not once per loop
+        expect(cdp.switchModel).toHaveBeenCalledWith('gemini-3-pro-high');
+        expect(cdp.switchModel.mock.invocationCallOrder[0]).toBeLessThan(cdp.injectPrompt.mock.invocationCallOrder[0]);
+    });
+
+    it('announces and counts a model switch only when the editor really switched', async () => {
+        const loop = await loadLoop();
+        const { writeFileSync } = await import('fs');
+        const plan = join(vs.workspace.workspaceFolders[0].uri.fsPath, '@fix_plan.md');
+        writeFileSync(plan, '- [ ] Restyle the button layout css\n');
+        let n = 0;
+        cdp.waitForResponse.mockImplementation(async () => {
+            n++;
+            git.head++;
+            writeFileSync(plan, '- [x] Restyle the button layout css\n- [ ] Investigate the deadlock in the scheduler\n');
+            return `Step ${n}: finished item ${n} of the plan and moved on.`;
+        });
+        cdp.switchModel.mockImplementation(async (model: string) => model === 'gemini-3-pro-high'); // 2nd switch fails
+
+        void loop.start({ maxLoops: 2, loopIntervalSeconds: 1 });
+        await runUntilStopped(loop);
+
+        expect(cdp.switchModel.mock.calls.map((c) => c[0])).toEqual(['gemini-3-pro-high', 'claude-opus-4.5-thinking']);
+        expect(notifications().filter((m) => m.includes('🔄'))).toEqual([]);
+        const { progressTracker } = await import('../../src/core/progress-tracker');
+        expect(progressTracker.getStats().modelSwitches).toBe(0);
+    });
+
+    it('does not touch the model picker when auto-switching is off', async () => {
+        const loop = await loadLoop();
+        vs.state.config.set('workflowKit.autoSwitchModels', false);
+        distinctResponses('commit');
+
+        void loop.start({ goal: 'Restyle the button layout css', maxLoops: 2, loopIntervalSeconds: 1 });
+        await runUntilStopped(loop);
+
+        expect(cdp.switchModel).not.toHaveBeenCalled();
     });
 });
