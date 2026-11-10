@@ -256,12 +256,12 @@
         "package": "npx @vscode/vsce package --allow-missing-repository --readme-path docs/MARKETPLACE.md"
     },
     "dependencies": {
-        "ws": "^8.13.0"
+        "ws": "^8.22.1"
     },
     "devDependencies": {
         "@types/node": "^24.0.0",
         "@types/vscode": "^1.75.0",
-        "@types/ws": "^8.5.10",
+        "@types/ws": "^8.18.2",
         "@typescript-eslint/eslint-plugin": "^6.13.0",
         "@typescript-eslint/parser": "^6.13.0",
         "@vitest/coverage-v8": "^5.0.1",
