@@ -57,7 +57,8 @@ export class ProgressTracker {
             timestamp: Date.now(),
             filesChanged,
             responseLength: partial.responseLength || 0,
-            responseHash: partial.responseHash || this.hashString(String(partial.responseLength)),
+            // No placeholder: an empty hash means "no response this loop"
+            responseHash: partial.responseHash || '',
             hasErrors: partial.hasErrors || false,
             taskCompleted: partial.taskCompleted || false,
             modelUsed: partial.modelUsed || 'unknown',
@@ -95,6 +96,15 @@ export class ProgressTracker {
         } catch {
             return 0;
         }
+    }
+
+    /**
+     * Hash of a response for repeat detection (case and whitespace are ignored).
+     * Returns '' for an empty response.
+     */
+    hashResponse(response: string): string {
+        const normalized = (response || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        return normalized ? this.hashString(normalized) : '';
     }
 
     /**
@@ -140,7 +150,7 @@ export class ProgressTracker {
 
         const recent = this.history.slice(-3);
         const noProgress = recent.every(p => p.filesChanged === 0);
-        const sameResponse = recent.every(p => p.responseHash === recent[0].responseHash);
+        const sameResponse = recent.every(p => p.responseHash !== '' && p.responseHash === recent[0].responseHash);
 
         return noProgress || sameResponse;
     }

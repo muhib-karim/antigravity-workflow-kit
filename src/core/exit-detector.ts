@@ -61,7 +61,7 @@ export class ExitDetector {
         if (this.consecutiveFailures >= this.maxConsecutiveFailures) {
             return {
                 shouldExit: true,
-                reason: `Circuit breaker: ${this.consecutiveFailures} consecutive failures`,
+                reason: `${this.consecutiveFailures} consecutive failures`,
                 confidence: 1.0,
             };
         }

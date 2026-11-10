@@ -19,6 +19,11 @@ export enum CircuitState {
 export interface CircuitBreakerState {
     state: CircuitState;
     consecutiveNoProgress: number;
+    /** Loops in a row that reported an error. A clean loop resets it. */
+    consecutiveErrors: number;
+    /** Loops in a row whose response had already been seen among the last few responses. */
+    consecutiveDuplicateResponses: number;
+    /** The larger of the two counters above (kept for existing consumers). */
     consecutiveSameError: number;
     lastProgressLoop: number;
     totalOpens: number;
@@ -37,6 +42,8 @@ export interface LoopResult {
 const DEFAULT_STATE: CircuitBreakerState = {
     state: CircuitState.CLOSED,
     consecutiveNoProgress: 0,
+    consecutiveErrors: 0,
+    consecutiveDuplicateResponses: 0,
     consecutiveSameError: 0,
     lastProgressLoop: 0,
     totalOpens: 0,
@@ -46,7 +53,7 @@ const DEFAULT_STATE: CircuitBreakerState = {
 
 // Thresholds
 const NO_PROGRESS_THRESHOLD = 3;    // Open after 3 loops no progress
-const SAME_ERROR_THRESHOLD = 5;     // Open after 5 same errors
+const SAME_ERROR_THRESHOLD = 5;     // Open after 5 consecutive errors, or 5 consecutive repeated responses
 const HALF_OPEN_THRESHOLD = 2;      // Enter half-open after 2 no progress
 
 export class CircuitBreaker {
@@ -98,14 +105,14 @@ export class CircuitBreaker {
             log.warn(`No progress: ${this.state.consecutiveNoProgress} consecutive loops`);
         }
 
-        // Detect same response (stagnation)
+        // Detect repeated responses (stagnation). A loop without a response leaves the count alone.
         if (result.responseHash) {
             const isDuplicate = this.lastResponseHashes.includes(result.responseHash);
             if (isDuplicate) {
-                this.state.consecutiveSameError++;
-                log.warn(`Duplicate response: ${this.state.consecutiveSameError} times`);
+                this.state.consecutiveDuplicateResponses++;
+                log.warn(`Duplicate response: ${this.state.consecutiveDuplicateResponses} times`);
             } else {
-                this.state.consecutiveSameError = 0;
+                this.state.consecutiveDuplicateResponses = 0;
             }
 
             // Keep last 5 hashes
@@ -115,10 +122,18 @@ export class CircuitBreaker {
             }
         }
 
-        // Detect errors
+        // Detect errors. "Consecutive" means consecutive: a loop without errors resets the count.
         if (result.hasErrors) {
-            this.state.consecutiveSameError++;
+            this.state.consecutiveErrors++;
+            log.warn(`Loop error: ${this.state.consecutiveErrors} consecutive`);
+        } else {
+            this.state.consecutiveErrors = 0;
         }
+
+        this.state.consecutiveSameError = Math.max(
+            this.state.consecutiveErrors,
+            this.state.consecutiveDuplicateResponses
+        );
 
         // State transitions
         this.state.currentLoop = result.loopNumber;
@@ -137,19 +152,24 @@ export class CircuitBreaker {
      */
     private updateState(hasProgress: boolean): void {
         switch (this.state.state) {
-            case CircuitState.CLOSED:
+            case CircuitState.CLOSED: {
+                const repeated = this.repeatedFailureReason();
                 if (this.state.consecutiveNoProgress >= NO_PROGRESS_THRESHOLD) {
                     this.openCircuit(`No progress in ${this.state.consecutiveNoProgress} consecutive loops`);
-                } else if (this.state.consecutiveSameError >= SAME_ERROR_THRESHOLD) {
-                    this.openCircuit(`Same error repeated ${this.state.consecutiveSameError} times`);
+                } else if (repeated) {
+                    this.openCircuit(repeated);
                 } else if (this.state.consecutiveNoProgress >= HALF_OPEN_THRESHOLD) {
                     this.state.state = CircuitState.HALF_OPEN;
                     this.state.reason = `Monitoring: ${this.state.consecutiveNoProgress} loops without progress`;
                 }
                 break;
+            }
 
-            case CircuitState.HALF_OPEN:
-                if (hasProgress) {
+            case CircuitState.HALF_OPEN: {
+                const repeated = this.repeatedFailureReason();
+                if (repeated) {
+                    this.openCircuit(repeated);
+                } else if (hasProgress) {
                     this.state.state = CircuitState.CLOSED;
                     this.state.reason = 'Progress detected, circuit recovered';
                     log.info('Circuit recovered to CLOSED');
@@ -157,11 +177,25 @@ export class CircuitBreaker {
                     this.openCircuit(`No recovery after ${this.state.consecutiveNoProgress} loops`);
                 }
                 break;
+            }
 
             case CircuitState.OPEN:
-                // Stay open until manual reset
+                // Stay open until reset
                 break;
         }
+    }
+
+    /**
+     * Reason to open because of repeated errors or repeated responses, if either threshold is reached
+     */
+    private repeatedFailureReason(): string | null {
+        if (this.state.consecutiveErrors >= SAME_ERROR_THRESHOLD) {
+            return `Same error repeated ${this.state.consecutiveErrors} times`;
+        }
+        if (this.state.consecutiveDuplicateResponses >= SAME_ERROR_THRESHOLD) {
+            return `Same response repeated ${this.state.consecutiveDuplicateResponses} times`;
+        }
+        return null;
     }
 
     /**
@@ -183,10 +217,11 @@ export class CircuitBreaker {
     }
 
     /**
-     * Manually reset the circuit breaker
+     * Reset the circuit breaker (user action, new session or a recovery attempt).
+     * The number of times it has opened is kept.
      */
     reset(reason = 'Manual reset'): void {
-        this.state = { ...DEFAULT_STATE, reason };
+        this.state = { ...DEFAULT_STATE, totalOpens: this.state.totalOpens, reason };
         this.lastResponseHashes = [];
         log.info(`Circuit breaker reset: ${reason}`);
     }
