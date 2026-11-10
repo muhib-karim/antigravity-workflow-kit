@@ -260,7 +260,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
-        "@types/node": "^24.0.0",
+        "@types/node": "^26.6.6",
         "@types/vscode": "^1.75.0",
         "@types/ws": "^8.18.2",
         "@vitest/coverage-v8": "^5.1.0",
