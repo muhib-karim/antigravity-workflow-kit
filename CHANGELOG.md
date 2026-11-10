@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Project sync** no longer destroys `@fix_plan.md`: a failed GitHub or Jira fetch used to be treated as "no issues" and the plan was overwritten with an empty one. A failed fetch now aborts the sync, and fetched issues are merged into the existing tasks (ticked boxes stay ticked, no duplicates) instead of replacing them.
 - Activating the extension no longer creates a `.workflow-kit/memory/` folder in every workspace; it is created when something is first saved.
 - **Relauncher:** workspace folder paths were written into the macOS/Linux relaunch script inside double quotes, where the shell still expands `$(…)` and backticks. They are now single-quoted. The script is written to a fresh private directory instead of a fixed file name in the shared temp directory, and the setup prompt says what it changes.
+- The packaging test now builds the bundle itself. It relied on a `dist/` directory from an earlier build, so it failed in CI, where the tests run before the build step.
 - A CDP handler that fails to load is now reported with an error notification instead of only a log line, and no longer prevents the rest of the extension from starting.
 - Model IDs in `src/utils/constants.ts` now match the IDs declared in `package.json` settings (e.g. `claude-opus-4.5-thinking`), so display labels and rate-limit model fallback resolve the configured model.
 - `npm run lint` now has an ESLint configuration; CI workflow now triggers on the `master` branch.

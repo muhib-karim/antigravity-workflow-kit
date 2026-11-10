@@ -3,7 +3,7 @@
  * Regression: the VSIX used to ship without node_modules/ws, so main_scripts/cdp-handler.js could not load.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { execFileSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { builtinModules } from 'module';
 import { join } from 'path';
@@ -12,13 +12,18 @@ const root = join(__dirname, '..', '..');
 let files: string[] = [];
 
 beforeAll(() => {
+    // `vsce ls` lists what exists; it does not run the prepublish build. Build the bundle here so the
+    // test does not depend on an earlier step (CI runs the tests before `npm run compile`) or on a
+    // dist/ directory left over from a previous run.
+    execSync('npm run compile', { cwd: root, stdio: 'pipe' });
+
     const vsce = join(root, 'node_modules', '@vscode', 'vsce', 'vsce');
     const output = execFileSync(process.execPath, [vsce, 'ls', '--readme-path', 'docs/MARKETPLACE.md'], {
         cwd: root,
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
     });
-    // keep only lines that are real paths (drops the npm/esbuild chatter of the prepublish step)
+    // keep only lines that are real paths
     files = output.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && existsSync(join(root, line)));
 }, 120_000);
 
