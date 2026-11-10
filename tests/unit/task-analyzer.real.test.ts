@@ -19,6 +19,36 @@ describe('TaskAnalyzer (src/core/task-analyzer)', () => {
         expect(analyzer.analyze('Debug and fix the race condition bug')).toBe(TaskType.REASONING);
     });
 
+    it('matches keywords as whole words, not as substrings', () => {
+        expect(analyzer.analyze('Build the release pipeline')).toBe(TaskType.GENERAL);       // "ui" in "build"
+        expect(analyzer.analyze('Add a prefix to every log line')).toBe(TaskType.GENERAL);   // "fix" in "prefix"
+        expect(analyzer.analyze('Write the information page text')).toBe(TaskType.FRONTEND); // "page", not "form"
+        expect(analyzer.analyze('Tidy the UI')).toBe(TaskType.FRONTEND);
+    });
+
+    it('still matches simple inflections of a keyword', () => {
+        expect(analyzer.analyze('Fixing two bugs')).toBe(TaskType.REASONING);
+        expect(analyzer.analyze('Optimizing the hot path')).toBe(TaskType.REASONING);
+        expect(analyzer.analyze('Renamed variables and removed comments')).toBe(TaskType.QUICK);
+        expect(analyzer.analyze('New buttons and forms')).toBe(TaskType.FRONTEND);
+    });
+
+    it('finds nested (indented) unchecked items and + bullets', () => {
+        expect(analyzer.extractCurrentTask('- [x] Parent item\n  - [ ] Nested child task\n')).toBe('Nested child task');
+        expect(analyzer.extractCurrentTask('+ [ ] Plus bullet')).toBe('Plus bullet');
+        expect(analyzer.extractCurrentTask('\t* [ ] Tab indented')).toBe('Tab indented');
+    });
+
+    it('ignores checkbox examples inside fenced code blocks', () => {
+        const plan = ['Format:', '```', '- [ ] example item', '```', '- [x] done', '- [ ] Real task'].join('\n');
+        expect(analyzer.extractCurrentTask(plan)).toBe('Real task');
+    });
+
+    it('marks a nested task complete and keeps its indentation', () => {
+        const plan = '- [x] Parent\n  - [ ] Child';
+        expect(analyzer.markTaskComplete(plan, 'Child')).toBe('- [x] Parent\n  - [x] Child');
+    });
+
     it('extracts the first unchecked task from a fix plan', () => {
         const plan = ['# Plan', '- [x] Done already', '- [ ] Add login page', '* [ ] Later'].join('\n');
         expect(analyzer.extractCurrentTask(plan)).toBe('Add login page');

@@ -26,8 +26,6 @@ export class RateLimiter {
         waitingForReset: false,
     };
 
-    private waitTimer: NodeJS.Timeout | null = null;
-
     /**
      * Check if we can make a call
      */
@@ -109,60 +107,70 @@ export class RateLimiter {
     }
 
     /**
-     * Wait for rate limit to reset with countdown
+     * Wait for the hourly window to end, with a cancellable countdown.
+     * Resolves 'wait' when the window is over (the quota is then fresh) and 'exit' when the user
+     * cancels. Cancelling ends the wait; it does not hand back the quota.
      */
     private async waitForReset(): Promise<'wait' | 'exit'> {
         this.state.waitingForReset = true;
-        const timeUntilReset = this.getTimeUntilReset();
+        const totalMs = this.getTimeUntilReset();
 
-        log.info(`Waiting ${Math.ceil(timeUntilReset / 60000)} minutes for rate limit reset...`);
+        log.info(`Waiting ${Math.ceil(totalMs / 60000)} minutes for rate limit reset...`);
 
-        // Show progress notification
-        return new Promise((resolve) => {
-            vscode.window.withProgress(
+        try {
+            return await vscode.window.withProgress(
                 {
                     location: vscode.ProgressLocation.Notification,
                     title: 'Antigravity Workflow Kit: Waiting for rate limit reset',
                     cancellable: true,
                 },
-                async (progress, token) => {
+                (progress, token) => new Promise<'wait' | 'exit'>((resolve) => {
                     const startTime = Date.now();
-                    const totalMs = timeUntilReset;
+                    let reportedPercent = 0;
+                    let ticker: NodeJS.Timeout | null = null;
 
-                    token.onCancellationRequested(() => {
-                        this.state.waitingForReset = false;
-                        resolve('exit');
-                    });
+                    const finish = (decision: 'wait' | 'exit') => {
+                        if (ticker) {
+                            clearInterval(ticker);
+                            ticker = null;
+                        }
+                        resolve(decision);
+                    };
 
-                    // Update progress every 10 seconds
-                    while (Date.now() - startTime < totalMs) {
-                        if (token.isCancellationRequested) {
-                            break;
+                    const tick = () => {
+                        const elapsed = Date.now() - startTime;
+                        if (elapsed >= totalMs) {
+                            this.state.callsThisHour = 0;
+                            this.state.hourStartTime = Date.now();
+                            this.state.isLimited = false;
+                            log.info('Rate limit reset. Resuming...');
+                            finish('wait');
+                            return;
                         }
 
-                        const elapsed = Date.now() - startTime;
-                        const remaining = totalMs - elapsed;
-                        const minutesLeft = Math.ceil(remaining / 60000);
-                        const percentage = (elapsed / totalMs) * 100;
-
+                        // `increment` is added to what was reported before, so report the difference
+                        const percent = (elapsed / totalMs) * 100;
                         progress.report({
-                            increment: percentage,
-                            message: `${minutesLeft} minutes remaining...`,
+                            increment: percent - reportedPercent,
+                            message: `${Math.ceil((totalMs - elapsed) / 60000)} minutes remaining...`,
                         });
+                        reportedPercent = percent;
+                    };
 
-                        await new Promise((r) => setTimeout(r, 10000));
+                    token.onCancellationRequested(() => {
+                        log.info('Rate limit wait cancelled');
+                        finish('exit');
+                    });
+
+                    tick();
+                    if (ticker === null && Date.now() - startTime < totalMs) {
+                        ticker = setInterval(tick, 10000); // update every 10 seconds
                     }
-
-                    this.state.waitingForReset = false;
-                    this.state.callsThisHour = 0;
-                    this.state.hourStartTime = Date.now();
-                    this.state.isLimited = false;
-
-                    log.info('Rate limit reset. Resuming...');
-                    resolve('wait');
-                }
+                })
             );
-        });
+        } finally {
+            this.state.waitingForReset = false;
+        }
     }
 
     /**
@@ -195,10 +203,6 @@ export class RateLimiter {
             isLimited: false,
             waitingForReset: false,
         };
-        if (this.waitTimer) {
-            clearTimeout(this.waitTimer);
-            this.waitTimer = null;
-        }
         log.info('Rate limiter reset');
     }
 }
