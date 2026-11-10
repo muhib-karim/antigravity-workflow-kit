@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `npm run package` uses `docs/MARKETPLACE.md` as the VSIX README; legacy `out/` and root `extension.js` are no longer packaged.
 
 ### Changed
+- **CI:** `ci.yml` is now the single gating workflow (lint, type check, tests with coverage, build, package, a smoke test that loads the CDP handler from the built VSIX, and a production-dependency audit, on Node 22 and 24) plus a gitleaks job. The duplicate `ci-cd.yml`, which let lint and test failures pass, is removed; its publish steps moved to `release.yml`, which runs the same gates first, checks that the tag matches `package.json`, and reads tokens from the environment. All actions are pinned to commit SHAs, jobs have timeouts, and Dependabot watches npm and GitHub Actions.
 - An approval whose nearby code block matches the deny-list is left for you to click, including file edits. A Run/Execute button with no readable command text next to it is still clicked, and is now logged and counted as `unverified` in the auto-accept stats.
 
 ### Added

@@ -1,31 +1,42 @@
 name: CI
 
+# The single gating workflow. Every step in `build` must pass; nothing here is continue-on-error
+# except the artifact upload, which is a convenience and must not fail the build.
 on:
   push:
-    branches: [master, main]
+    branches: [master]
   pull_request:
-    branches: [master, main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: Lint, test, build, package (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: [22.x, 24.x]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -36,8 +47,8 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      - name: Unit tests
-        run: npm test
+      - name: Unit tests with coverage
+        run: npm run test:coverage
 
       - name: Build
         run: npm run compile
@@ -45,9 +56,51 @@ jobs:
       - name: Package extension
         run: npm run package
 
+      - name: Smoke-test the packaged VSIX
+        run: |
+          mkdir -p "$RUNNER_TEMP/vsix"
+          unzip -q ./*.vsix -d "$RUNNER_TEMP/vsix"
+          node -e "const { CDPHandler } = require(process.argv[1]); new CDPHandler(); console.log('VSIX loads its CDP handler')" \
+            "$RUNNER_TEMP/vsix/extension/main_scripts/cdp-handler.js"
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      # Best effort: the account's artifact storage quota may be exhausted, and that must not fail CI.
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
+        if: matrix.node-version == '22.x'
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: antigravity-workflow-kit-${{ matrix.node-version }}
+          name: antigravity-workflow-kit-vsix
           path: '*.vsix'
-          retention-days: 7
+          retention-days: 3
+          if-no-files-found: error
+
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Pinned release and the sha256 of its linux_x64 tarball (from the release's checksums file).
+      # Dependabot does not track this pin; update both values together.
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tar.gz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  ${RUNNER_TEMP}/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+
+      - name: Scan the repository history
+        run: |
+          "$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact --no-banner .
