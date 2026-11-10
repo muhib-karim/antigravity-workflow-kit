@@ -135,6 +135,10 @@ export class AutonomousLoop {
             wake();
         }
 
+        // Close the loop's CDP socket. This also fails any command still in flight, so a loop that
+        // is waiting for a response notices at once instead of after the response timeout.
+        cdpClient.disconnect();
+
         log.info(`Loop stopped: ${reason}`);
         this.showSummary(reason);
         this.updateStatus();

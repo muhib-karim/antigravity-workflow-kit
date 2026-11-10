@@ -106,6 +106,10 @@ string.
 - The remote-debugging port is unauthenticated: while it is open, any local process can drive the editor.
   **Setup & Restart** changes your Antigravity shortcut so the port stays enabled on later launches.
 
+**Turning it off.** *Workflow Kit: OFF* tells every page to stop and closes the connections. The clicking itself
+runs inside the editor page, so the extension also signals it every 5 seconds; a page that hears nothing for 20
+seconds (for example because the extension host crashed) stops clicking on its own.
+
 See [SECURITY.md](SECURITY.md) for how to report a vulnerability and for the full list of things to know.
 
 ## Usage
@@ -194,8 +198,9 @@ flowchart LR
   auto-accept script), `relauncher.js` (restarts the editor with the debugging flag) and `banned-commands.js`
   (the deny-list matcher). The VSIX therefore ships `main_scripts/` and `node_modules/ws/` next to the bundle;
   `.vscodeignore` is an allow-list and `tests/unit/packaging.test.ts` checks the result.
-- There are two CDP connections: `cdp-handler.js` for auto-accept, and `src/providers/cdp-client.ts` for the
-  autonomous loop, which types the prompt into the chat and reads the last response.
+- There are two CDP connections, both on ports 9000–9010: `cdp-handler.js` for auto-accept, and
+  `src/providers/cdp-client.ts` for the autonomous loop, which types the prompt into the chat and reads the last
+  response. The loop's connection is closed whenever the loop stops.
 - Configuration is read through a typed singleton (`src/utils/config.ts`) backed by `DEFAULT_CONFIG` in
   `src/utils/constants.ts`.
 

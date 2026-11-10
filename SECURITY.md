@@ -29,7 +29,9 @@ in `~/.local/bin` on macOS, the `.desktop` file on Linux) so the flag stays on f
 `--remote-debugging-port=9000` from that shortcut to undo it.
 
 **The auto-accept script runs in every page the port exposes.** It clicks buttons whose label contains `accept`,
-`run`, `retry`, `apply`, `execute`, `confirm` or `allow`.
+`run`, `retry`, `apply`, `execute`, `confirm` or `allow`. It runs inside the page, not in the extension: turning
+auto-accept off sends it a stop signal, and it also stops by itself when it has not heard from the extension for
+20 seconds.
 
 **The deny-list is a safety net, not a sandbox.**
 

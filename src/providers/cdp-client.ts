@@ -7,12 +7,12 @@
 import * as http from 'http';
 import WebSocket from 'ws';
 import { createLogger } from '../utils/logger';
-import { MODEL_LABELS } from '../utils/constants';
+import { MODEL_LABELS, CDP_PORT_MIN, CDP_PORT_MAX } from '../utils/constants';
 
 const log = createLogger('CDPClient');
 
-const CDP_PORT_MIN = 9000;
-const CDP_PORT_MAX = 9030;
+const CONNECT_TIMEOUT_MS = 5000;
+const COMMAND_TIMEOUT_MS = 30000;
 
 interface CDPTarget {
     id: string;
@@ -33,7 +33,7 @@ interface CDPMessage {
 export class CDPClient {
     private ws: WebSocket | null = null;
     private messageId = 0;
-    private pendingMessages: Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }> = new Map();
+    private pendingMessages: Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }> = new Map();
     private port: number | null = null;
     private connected = false;
 
@@ -94,19 +94,32 @@ export class CDPClient {
      */
     private connectToTarget(wsUrl: string): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.ws = new WebSocket(wsUrl);
+            // Replace any previous socket; its late events are ignored below
+            this.dropSocket('Reconnecting');
+            const ws = new WebSocket(wsUrl);
+            this.ws = ws;
 
-            this.ws.on('open', () => {
+            const timeout = setTimeout(() => {
+                // Do not leave a half-open socket behind
+                if (this.ws === ws) this.dropSocket('Connection timeout');
+                else ws.terminate();
+                reject(new Error('Connection timeout'));
+            }, CONNECT_TIMEOUT_MS);
+
+            ws.on('open', () => {
+                clearTimeout(timeout);
+                if (this.ws !== ws) return; // superseded while connecting
                 this.connected = true;
                 resolve();
             });
 
-            this.ws.on('message', (data) => {
+            ws.on('message', (data) => {
                 try {
                     const msg: CDPMessage = JSON.parse(data.toString());
                     const pending = this.pendingMessages.get(msg.id);
                     if (pending) {
                         this.pendingMessages.delete(msg.id);
+                        clearTimeout(pending.timer);
                         if (msg.error) {
                             pending.reject(new Error(msg.error.message));
                         } else {
@@ -118,13 +131,47 @@ export class CDPClient {
                 }
             });
 
-            this.ws.on('error', reject);
-            this.ws.on('close', () => {
-                this.connected = false;
+            ws.on('error', (err) => {
+                clearTimeout(timeout);
+                reject(err);
             });
-
-            setTimeout(() => reject(new Error('Connection timeout')), 5000);
+            ws.on('close', () => {
+                clearTimeout(timeout);
+                if (this.ws !== ws) return; // an old socket closing must not mark the new one as down
+                this.ws = null;
+                this.connected = false;
+                this.rejectPending('Connection closed');
+            });
         });
+    }
+
+    /**
+     * Close the current socket (if any) and fail whatever was waiting on it
+     */
+    private dropSocket(reason: string): void {
+        const ws = this.ws;
+        this.ws = null;
+        this.connected = false;
+        if (ws) {
+            try {
+                // terminate() also works on a socket that is still connecting
+                ws.terminate();
+            } catch {
+                // already gone
+            }
+        }
+        this.rejectPending(reason);
+    }
+
+    /**
+     * Fail every command that is still waiting for a reply, so callers do not hang
+     */
+    private rejectPending(reason: string): void {
+        for (const [id, pending] of this.pendingMessages) {
+            clearTimeout(pending.timer);
+            this.pendingMessages.delete(id);
+            pending.reject(new Error(reason));
+        }
     }
 
     /**
@@ -140,16 +187,15 @@ export class CDPClient {
             const id = ++this.messageId;
             const message: CDPMessage = { id, method, params };
 
-            this.pendingMessages.set(id, { resolve, reject });
-            this.ws.send(JSON.stringify(message));
-
-            // Timeout after 30 seconds
-            setTimeout(() => {
+            const timer = setTimeout(() => {
                 if (this.pendingMessages.has(id)) {
                     this.pendingMessages.delete(id);
                     reject(new Error('Timeout'));
                 }
-            }, 30000);
+            }, COMMAND_TIMEOUT_MS);
+
+            this.pendingMessages.set(id, { resolve, reject, timer });
+            this.ws.send(JSON.stringify(message));
         });
     }
 
@@ -224,6 +270,12 @@ export class CDPClient {
         let stableCount = 0;
 
         while (Date.now() - startTime < timeoutMs) {
+            if (!this.connected) {
+                // Polling a dead connection until the timeout (15 minutes by default) helps nobody
+                log.warn('Connection lost while waiting for a response');
+                return lastResponse;
+            }
+
             try {
                 const response = await this.evaluate(`
           (function() {
@@ -309,37 +361,6 @@ export class CDPClient {
     }
 
     /**
-     * Click Accept buttons (auto-all)
-     */
-    async clickAcceptButtons(): Promise<number> {
-        if (!this.connected) return 0;
-
-        try {
-            const count = await this.evaluate(`
-        (function() {
-          let clicked = 0;
-          const buttons = document.querySelectorAll('button');
-          for (const btn of buttons) {
-            const text = btn.textContent?.toLowerCase() || '';
-            if (text.includes('accept') || text.includes('approve') || text.includes('run')) {
-              btn.click();
-              clicked++;
-            }
-          }
-          return clicked;
-        })()
-      `) as number;
-
-            if (count > 0) {
-                log.info(`Clicked ${count} accept buttons`);
-            }
-            return count || 0;
-        } catch {
-            return 0;
-        }
-    }
-
-    /**
      * Get current model name
      */
     async getCurrentModel(): Promise<string> {
@@ -369,12 +390,7 @@ export class CDPClient {
      * Disconnect
      */
     disconnect(): void {
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
-        this.connected = false;
-        this.pendingMessages.clear();
+        this.dropSocket('Disconnected');
     }
 
     private wait(ms: number): Promise<void> {

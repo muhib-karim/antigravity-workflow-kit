@@ -10,7 +10,8 @@ import { StatusBarManager } from './ui/status-bar';
 import { DashboardPanel } from './ui/dashboard';
 import { config } from './utils/config';
 import { createLogger } from './utils/logger';
-import { CDP_PORT_MIN } from './utils/constants';
+import { CDP_PORT_MIN, CDP_PORT_MAX } from './utils/constants';
+import { cdpClient } from './providers/cdp-client';
 import { autonomousLoop } from './core/autonomous-loop';
 import { circuitBreaker } from './core/circuit-breaker';
 import { progressTracker } from './core/progress-tracker';
@@ -34,6 +35,8 @@ let relauncher: any = null;
 let pollTimer: NodeJS.Timeout | null = null;
 let currentIDE = 'Antigravity';
 let globalContext: vscode.ExtensionContext;
+// One collection for all code-review diagnostics; created on first use, disposed with the extension
+let reviewDiagnostics: vscode.DiagnosticCollection | undefined;
 
 // ============ Activation (matches old extension flow) ============
 export function activate(context: vscode.ExtensionContext): void {
@@ -54,7 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const cdpHandlerPath = path.join(context.extensionPath, 'main_scripts', 'cdp-handler.js');
         const { CDPHandler } = require(cdpHandlerPath);
 
-        cdpHandler = new CDPHandler(CDP_PORT_MIN, CDP_PORT_MIN + 10, log.info.bind(log));
+        cdpHandler = new CDPHandler(CDP_PORT_MIN, CDP_PORT_MAX, log.info.bind(log));
 
         // CRITICAL: Set Pro status like old extension (enables all features)
         if (cdpHandler.setProStatus) {
@@ -131,7 +134,7 @@ async function ensureCDPOrPrompt(showPrompt: boolean): Promise<void> {
     if (cdpAvailable) {
         log.info('CDP is active and available.');
     } else {
-        log.info('CDP not found on expected ports (9000-9030).');
+        log.info(`CDP not found on expected ports (${CDP_PORT_MIN}-${CDP_PORT_MAX}).`);
 
         if (showPrompt && relauncher) {
             log.info('Auto-prompting user for relaunch to enable CDP...');
@@ -144,11 +147,17 @@ async function ensureCDPOrPrompt(showPrompt: boolean): Promise<void> {
 
 // ============ Polling (SAME AS OLD EXTENSION) ============
 async function startPolling(): Promise<void> {
+    // Callers reach this after awaiting the relaunch prompt; Auto-All may have been turned off meanwhile
+    if (!config.get('autoAllEnabled')) {
+        log.info('Workflow Kit: Auto-All is off, not starting CDP polling');
+        return;
+    }
+
     if (pollTimer) clearInterval(pollTimer);
     log.info('Workflow Kit: Starting CDP polling...');
 
-    await syncCDPSession();
-
+    // The timer is registered before the first (awaited) sync, so a second startPolling() that
+    // arrives during that sync replaces it instead of adding another one.
     pollTimer = setInterval(async () => {
         if (!config.get('autoAllEnabled')) {
             await stopPolling();
@@ -156,10 +165,13 @@ async function startPolling(): Promise<void> {
         }
         await syncCDPSession();
     }, 5000);
+
+    await syncCDPSession();
 }
 
 async function syncCDPSession(): Promise<void> {
     if (!cdpHandler) return;
+    if (!config.get('autoAllEnabled')) return;
 
     try {
         await cdpHandler.start({
@@ -280,10 +292,14 @@ async function runCodeReview(): Promise<void> {
 
     const result = codeReviewer.review(code, filename);
 
-    // Show diagnostics in VS Code
+    // Show diagnostics in VS Code. One shared collection: set() replaces this file's previous
+    // results, and the collection is disposed together with the extension.
     const diagnostics = codeReviewer.showDiagnostics(editor.document, result.issues);
-    const collection = vscode.languages.createDiagnosticCollection('workflow-kit-review');
-    collection.set(editor.document.uri, diagnostics);
+    if (!reviewDiagnostics) {
+        reviewDiagnostics = vscode.languages.createDiagnosticCollection('workflow-kit-review');
+        globalContext.subscriptions.push(reviewDiagnostics);
+    }
+    reviewDiagnostics.set(editor.document.uri, diagnostics);
 
     vscode.window.showInformationMessage(result.summary, 'View Details').then(action => {
         if (action === 'View Details') {
@@ -631,9 +647,16 @@ function updateStatusBar(): void {
 }
 
 // ============ Deactivation ============
-export function deactivate(): void {
-    stopPolling();
+/**
+ * VS Code waits for the returned promise, so the stop signal reaches the editor pages and the
+ * sockets are closed before the extension host moves on.
+ */
+export async function deactivate(): Promise<void> {
     autonomousLoop.stop('Extension deactivated');
+    cdpClient.disconnect();
+    reviewDiagnostics?.dispose();
+    reviewDiagnostics = undefined;
     statusBar?.dispose();
+    await stopPolling();
     log.info('Antigravity Workflow Kit deactivated');
 }

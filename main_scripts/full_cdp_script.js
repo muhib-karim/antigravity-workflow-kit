@@ -252,6 +252,22 @@
         });
     }
 
+    // Dead-man switch. The extension calls __autoAllStart every few seconds while auto-accept is on.
+    // If those calls stop (the extension host crashed, was killed, or lost this page), the loops end
+    // on their own instead of clicking forever with nothing left to turn them off.
+    const HEARTBEAT_TIMEOUT_MS = 20000;
+
+    function extensionIsAlive() {
+        const state = window.__autoAllState;
+        if (Date.now() - (state.lastHeartbeat || 0) <= HEARTBEAT_TIMEOUT_MS) return true;
+        if (state.isRunning) {
+            log(`[Heartbeat] No signal from the extension for ${HEARTBEAT_TIMEOUT_MS / 1000}s - stopping auto-accept`);
+            state.isRunning = false;
+            hideOverlay();
+        }
+        return false;
+    }
+
     const getDocuments = (root = document) => {
         let docs = [root];
         try {
@@ -680,7 +696,7 @@
         log('[Loop] cursorLoop STARTED');
         let index = 0;
         let cycle = 0;
-        while (window.__autoAllState.isRunning && window.__autoAllState.sessionID === sid) {
+        while (window.__autoAllState.isRunning && window.__autoAllState.sessionID === sid && extensionIsAlive()) {
             cycle++;
             log(`[Loop] Cycle ${cycle}: Starting...`);
 
@@ -735,7 +751,7 @@
         let index = 0;
         let cycle = 0;
 
-        while (window.__autoAllState.isRunning && window.__autoAllState.sessionID === sid) {
+        while (window.__autoAllState.isRunning && window.__autoAllState.sessionID === sid && extensionIsAlive()) {
             cycle++;
             log(`[Loop] Cycle ${cycle}: Starting...`);
 
@@ -838,6 +854,7 @@
             log(`__autoAllStart called: ide=${ide}, isPro=${isPro}, isBG=${isBG}`);
 
             const state = window.__autoAllState;
+            state.lastHeartbeat = Date.now(); // every call counts, including the "already running" one
 
             if (state.isRunning && state.currentMode === ide && state.isBackgroundMode === isBG) {
                 log(`Already running with same config, skipping`);
@@ -876,7 +893,7 @@
                 hideOverlay();
                 log(`Starting static poll loop...`);
                 (async function staticLoop() {
-                    while (state.isRunning && state.sessionID === sid) {
+                    while (state.isRunning && state.sessionID === sid && extensionIsAlive()) {
                         performClick(['button', '[class*="button"]', '[class*="anysphere"]']);
                         await workerDelay(config.pollInterval || 1000);
                     }
