@@ -29,9 +29,12 @@ const flush = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms));
 const checked = (html: string, feature: string) =>
     new RegExp(`<input type="checkbox" checked onchange="toggleFeature\\('${feature}'`).test(html);
 
-async function waitFor(condition: () => boolean, timeoutMs = 4000) {
+async function waitFor(condition: () => boolean, what: string, timeoutMs = 10_000) {
     const start = Date.now();
-    while (!condition() && Date.now() - start < timeoutMs) await flush(25);
+    while (!condition()) {
+        if (Date.now() - start > timeoutMs) throw new Error(`Timed out waiting for ${what}`);
+        await flush(10);
+    }
 }
 
 beforeEach(() => {
@@ -103,7 +106,7 @@ describe('dashboard', () => {
         // 'refresh' is the code path of the 15s auto-refresh: fetch usage, then re-render
         panel.webview.html = '';
         await panel.send({ command: 'refresh' });
-        await waitFor(() => panel.webview.html !== '');
+        await waitFor(() => panel.webview.html !== '', 'the dashboard to re-render after the usage refresh');
 
         expect(checked(panel.webview.html, 'autoSwitchModels')).toBe(false);
     });

@@ -109,8 +109,14 @@ describe('CDPClient connection', () => {
         const client = new CDPClient();
         const internals = client as unknown as Internals;
         await internals.connectToTarget(url);
+        const firstSocket = (client as unknown as { ws: WebSocket }).ws;
+        const firstSocketClosed = new Promise<void>((resolve) => {
+            if (firstSocket.readyState === WebSocket.CLOSED) resolve();
+            else firstSocket.once('close', () => resolve());
+        });
+
         await internals.connectToTarget(url); // reconnect: the first socket is dropped
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await firstSocketClosed; // its close event has been delivered (the client's listener runs first)
 
         expect(client.isConnected()).toBe(true);
         client.disconnect();

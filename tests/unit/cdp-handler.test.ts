@@ -14,7 +14,14 @@ const { CDPHandler } = nodeRequire('../../main_scripts/cdp-handler.js');
 const cfg = { isPro: true, isBackgroundMode: false, pollInterval: 1000, ide: 'antigravity', bannedCommands: ['rm -rf /'] };
 const isStartCall = (expression: string) => expression.includes('__autoAllStart({"');
 const isStopCall = (expression: string) => expression.includes('__autoAllStop()') && expression.length < 300;
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/** Wait for a condition instead of sleeping for a guessed time (slow CI machines make guesses wrong) */
+async function waitFor(condition: () => boolean, what: string, timeoutMs = 5000): Promise<void> {
+    const start = Date.now();
+    while (!condition()) {
+        if (Date.now() - start > timeoutMs) throw new Error(`Timed out waiting for ${what}`);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+}
 
 let server: http.Server;
 let wss: WebSocketServer;
@@ -22,14 +29,17 @@ let port: number;
 let evals: string[];
 let sockets: Set<WebSocket>;
 let listGate: Promise<void> | null;
+let listRequests: number;
 const page = () => ({ id: 'page-1', webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/page-1` });
 
 beforeEach(async () => {
     evals = [];
     sockets = new Set();
     listGate = null;
+    listRequests = 0;
     server = http.createServer(async (req, res) => {
         if (req.url === '/json/list') {
+            listRequests++;
             if (listGate) await listGate;
             res.setHeader('content-type', 'application/json');
             res.end(JSON.stringify([page()]));
@@ -74,8 +84,7 @@ describe('CDPHandler', () => {
         await handler.stop();
         expect(evals.filter(isStopCall)).toHaveLength(1); // stop() waits for the page to answer
         expect(handler.getConnectionCount()).toBe(0);
-        await delay(100);
-        expect(sockets.size).toBe(0);
+        await waitFor(() => sockets.size === 0, 'the page socket to close');
     });
 
     it('a start() that was already in flight does not re-enable auto-accept after stop()', async () => {
@@ -84,29 +93,29 @@ describe('CDPHandler', () => {
 
         let release!: () => void;
         listGate = new Promise<void>((resolve) => { release = resolve; });
+        const requestsBefore = listRequests;
         const inFlight = handler.start(cfg); // e.g. the 5s poll tick, now waiting on /json/list
-        await delay(50);
+        await waitFor(() => listRequests > requestsBefore, 'the in-flight start() to reach /json/list');
 
         const stopping = handler.stop(); // the user turns Auto-All off
-        await delay(100);
+        // connected pages are told immediately, before stop() has finished its own scan
+        await waitFor(() => evals.some(isStopCall), 'the stop signal');
         const stopIndex = evals.findIndex(isStopCall);
-        expect(stopIndex).toBeGreaterThanOrEqual(0); // connected pages are told immediately
 
         release();
         await Promise.all([inFlight, stopping]);
-        await delay(200);
+        // every socket is closed, so anything that was sent has arrived
+        await waitFor(() => sockets.size === 0, 'all page sockets to close');
 
         expect(evals.slice(stopIndex + 1).filter(isStartCall)).toEqual([]);
         expect(handler.getConnectionCount()).toBe(0);
-        expect(sockets.size).toBe(0);
     });
 
     it('stop() still reaches a page whose socket dropped since the last poll', async () => {
         const handler = new CDPHandler(port, port, () => { });
         await handler.start(cfg);
         for (const socket of sockets) socket.terminate(); // transient drop; the injected loop keeps running in the page
-        await delay(150);
-        expect(handler.getConnectionCount()).toBe(0);
+        await waitFor(() => handler.getConnectionCount() === 0, 'the handler to notice the dropped socket');
 
         await handler.stop();
 
@@ -120,8 +129,10 @@ describe('CDPHandler', () => {
         const oldSocket = handler.connections.get('page-1').ws;
 
         await handler.connectToPage(page()); // a second connection replaces the registered one
+        // The handler's own close listener was registered first, so it has run by the time this resolves
+        const oldSocketClosed = new Promise((resolve) => oldSocket.once('close', resolve));
         oldSocket.close();
-        await delay(150);
+        await oldSocketClosed;
 
         expect(handler.getConnectionCount()).toBe(1);
         expect(handler.connections.get('page-1').ws).not.toBe(oldSocket);
@@ -133,12 +144,11 @@ describe('CDPHandler', () => {
         let release!: () => void;
         listGate = new Promise<void>((resolve) => { release = resolve; });
         const older = handler.start(cfg);
-        await delay(30);
+        await waitFor(() => listRequests === 1, 'the older start() to reach /json/list');
         listGate = null;
         await handler.start(cfg);
         release();
         await older;
-        await delay(100);
 
         expect(evals.filter(isStartCall)).toHaveLength(1);
         expect(sockets.size).toBe(1);
