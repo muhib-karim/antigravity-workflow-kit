@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # @types/vscode must not be newer than engines.vscode (vsce refuses to package otherwise),
+      # and engines.vscode stays low so older Antigravity builds can install the extension.
+      - dependency-name: '@types/vscode'
     groups:
       # minor and patch updates arrive as one PR per group; majors stay separate so CI judges each alone
       production-dependencies:
