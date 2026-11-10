@@ -45,7 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **CI:** `ci.yml` is now the single gating workflow (lint, type check, tests with coverage, build, package, a smoke test that loads the CDP handler from the built VSIX, and a production-dependency audit, on Node 22 and 24) plus a gitleaks job. The duplicate `ci-cd.yml`, which let lint and test failures pass, is removed; its publish steps moved to `release.yml`, which runs the same gates first, checks that the tag matches `package.json`, and reads tokens from the environment. All actions are pinned to commit SHAs, jobs have timeouts, and Dependabot watches npm and GitHub Actions.
 - Both CDP connections now use ports 9000–9010; the autonomous loop's client used to scan up to 9030 while auto-accept and the README used 9010. The unused, deny-list-free `clickAcceptButtons` helper is removed from the loop's client.
+- `npm run lint` now fails on warnings (`--max-warnings 0`); the 38 existing warnings are fixed. The scaffold modules that nothing used (`mcp-server`, `model-provider`, `notification-manager`) are no longer imported by the entry point, so they are no longer bundled.
+- Lockfile: `npm audit fix` applied (clears the two high-severity advisories in the packaging toolchain). Seven moderate, development-only `minimatch` advisories remain; fixing them needs major upgrades of the lint and packaging tools.
 - An approval whose nearby code block matches the deny-list is left for you to click, including file edits. A Run/Execute button with no readable command text next to it is still clicked, and is now logged and counted as `unverified` in the auto-accept stats.
+
+### Removed
+- The stale committed build output (`out/` and the root `extension.js`). It referenced commands that no longer exist, had no matching sources, and was neither loaded nor packaged.
+- Unreferenced modules `src/settings-panel.ts`, `src/providers/auto-accept-bundle.ts` and `src/providers/model-scraper.ts` (the second contained an auto-clicker with no deny-list), the unused `VERSION` constant, and the three "specification-style" test suites that tested inline copies of the logic instead of `src/`. The test-loop detector now has a test against the real module.
 
 ### Added
 - **Dead-man switch for auto-accept:** the script injected into the editor now stops clicking by itself when it has not received a signal from the extension for 20 seconds (the extension signals every 5), so it cannot outlive a crashed or killed extension host.

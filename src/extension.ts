@@ -16,22 +16,33 @@ import { autonomousLoop } from './core/autonomous-loop';
 import { circuitBreaker } from './core/circuit-breaker';
 import { progressTracker } from './core/progress-tracker';
 // New feature imports
-import { mcpServer } from './providers/mcp-server';
 import { memoryManager } from './core/memory-manager';
 import { codeReviewer } from './core/code-reviewer';
 import { projectManager } from './providers/project-manager';
 import { voiceController } from './ui/voice-controller';
 import { agentOrchestrator } from './core/agent-orchestrator';
 import { testGenerator } from './core/test-generator';
-import { modelProviderManager } from './providers/model-provider';
-import { notificationManager } from './core/notification-manager';
 
 const log = createLogger('Extension');
 
 // ============ State (matches old extension) ============
 let statusBar: StatusBarManager;
-let cdpHandler: any = null;
-let relauncher: any = null;
+/** What src/extension.ts uses of main_scripts/cdp-handler.js (plain JS, loaded at runtime) */
+interface CdpHandler {
+    setProStatus?(isPro: boolean): void;
+    setLogFile(filePath: string): void;
+    isCDPAvailable(): Promise<boolean>;
+    start(config: Record<string, unknown>): Promise<void>;
+    stop(): Promise<void>;
+}
+
+/** What src/extension.ts uses of main_scripts/relauncher.js */
+interface RelauncherLike {
+    showRelaunchPrompt(): Promise<string>;
+}
+
+let cdpHandler: CdpHandler | null = null;
+let relauncher: RelauncherLike | null = null;
 let pollTimer: NodeJS.Timeout | null = null;
 let currentIDE = 'Antigravity';
 let globalContext: vscode.ExtensionContext;
@@ -55,20 +66,24 @@ export function activate(context: vscode.ExtensionContext): void {
     relauncher = null;
     try {
         const cdpHandlerPath = path.join(context.extensionPath, 'main_scripts', 'cdp-handler.js');
+        // eslint-disable-next-line @typescript-eslint/no-var-requires -- plain JS loaded from the installed extension folder at runtime
         const { CDPHandler } = require(cdpHandlerPath);
 
-        cdpHandler = new CDPHandler(CDP_PORT_MIN, CDP_PORT_MAX, log.info.bind(log));
+        const handler: CdpHandler = new CDPHandler(CDP_PORT_MIN, CDP_PORT_MAX, log.info.bind(log));
+        cdpHandler = handler;
 
         // CRITICAL: Set Pro status like old extension (enables all features)
-        if (cdpHandler.setProStatus) {
-            cdpHandler.setProStatus(true);
+        if (handler.setProStatus) {
+            handler.setProStatus(true);
         }
 
         // Set log file like old extension
         try {
             const logPath = path.join(context.extensionPath, 'workflow-kit-cdp.log');
-            cdpHandler.setLogFile(logPath);
-        } catch { }
+            handler.setLogFile(logPath);
+        } catch {
+            // the log file is optional (the extension folder may be read-only)
+        }
 
         log.info('CDP handler initialized with Pro status');
     } catch (err) {
@@ -84,6 +99,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // The relauncher is only needed to offer a restart with the remote-debugging port.
     try {
         const relauncherPath = path.join(context.extensionPath, 'main_scripts', 'relauncher.js');
+        // eslint-disable-next-line @typescript-eslint/no-var-requires -- plain JS loaded from the installed extension folder at runtime
         const { Relauncher } = require(relauncherPath);
         relauncher = new Relauncher(log.info.bind(log));
     } catch (err) {
@@ -195,7 +211,9 @@ async function stopPolling(): Promise<void> {
     if (cdpHandler) {
         try {
             await cdpHandler.stop();
-        } catch { }
+        } catch {
+            // stopping is best effort; the page-side heartbeat ends the loop if this did not get through
+        }
     }
     log.info('Workflow Kit: Polling stopped');
 }

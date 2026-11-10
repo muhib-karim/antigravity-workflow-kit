@@ -248,7 +248,7 @@
         "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --platform=node --format=cjs --sourcemap",
         "watch": "npm run compile -- --watch",
         "typecheck": "tsc --noEmit",
-        "lint": "eslint src --ext ts",
+        "lint": "eslint src --ext ts --max-warnings 0",
         "test": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",

@@ -4,9 +4,7 @@
  * @module providers/model-provider
  */
 
-import * as vscode from 'vscode';
 import { createLogger } from '../utils/logger';
-import { ModelId, MODEL_LABELS } from '../utils/constants';
 
 const log = createLogger('ModelProvider');
 
@@ -207,7 +205,7 @@ export class ModelProviderManager {
     private providers: Map<string, ModelProvider> = new Map();
     private usageStats: Map<string, ModelUsageStats> = new Map();
     private activeProvider: string | null = null;
-    private requestQueue: Array<{ request: ModelRequest; resolve: Function; reject: Function }> = [];
+    private requestQueue: Array<{ request: ModelRequest; resolve: (value: unknown) => void; reject: (reason?: unknown) => void }> = [];
     private isProcessingQueue = false;
 
     constructor() {

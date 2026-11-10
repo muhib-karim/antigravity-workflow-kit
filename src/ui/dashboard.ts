@@ -4,11 +4,11 @@
  */
 
 import * as vscode from 'vscode';
-import { DASHBOARD_CSS, KOFI_LINK, GITHUB_LINK, ICONS } from './styles';
+import { DASHBOARD_CSS, KOFI_LINK, ICONS } from './styles';
 import { config } from '../utils/config';
 import { usageProvider } from '../providers/antigravity-usage';
 import { createLogger } from '../utils/logger';
-import { SessionStats, UsageData, ModelId, MODEL_LABELS } from '../utils/constants';
+import { SessionStats, UsageData, MODEL_LABELS } from '../utils/constants';
 
 const log = createLogger('Dashboard');
 

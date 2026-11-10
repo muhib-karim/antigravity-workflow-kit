@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { exec } from 'child_process';
 import { circuitBreaker, CircuitState } from './circuit-breaker';
 import { progressTracker } from './progress-tracker';
 import { rateLimitHandler } from './rate-limit-handler';
@@ -470,7 +471,6 @@ export class AutonomousLoop {
         if (!this.workspaceRoot) return;
 
         try {
-            const { exec } = require('child_process');
             exec(
                 `git add -A && git commit -m "Workflow Kit auto-commit: Loop ${this.loopCount}"`,
                 { cwd: this.workspaceRoot },

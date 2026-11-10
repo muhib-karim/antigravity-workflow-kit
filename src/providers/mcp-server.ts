@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { exec } from 'child_process';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('MCPServer');
@@ -401,7 +402,7 @@ export class MCPServer {
         };
     }
 
-    private async handleGetWorkspaceInfo(args: Record<string, unknown>): Promise<MCPToolResult> {
+    private async handleGetWorkspaceInfo(): Promise<MCPToolResult> {
         const folders = vscode.workspace.workspaceFolders || [];
         const info = {
             folders: folders.map(f => ({ name: f.name, path: f.uri.fsPath })),
@@ -415,7 +416,7 @@ export class MCPServer {
         return { content: [{ type: 'text', text: JSON.stringify(info, null, 2) }] };
     }
 
-    private async handleGetOpenEditors(args: Record<string, unknown>): Promise<MCPToolResult> {
+    private async handleGetOpenEditors(): Promise<MCPToolResult> {
         const editors = vscode.window.visibleTextEditors.map(e => ({
             path: vscode.workspace.asRelativePath(e.document.uri),
             languageId: e.document.languageId,
@@ -460,11 +461,9 @@ export class MCPServer {
         return { content: [{ type: 'text', text: JSON.stringify(diagnostics, null, 2) }] };
     }
 
-    private async handleGitStatus(args: Record<string, unknown>): Promise<MCPToolResult> {
-        const { exec } = require('child_process');
-
+    private async handleGitStatus(): Promise<MCPToolResult> {
         return new Promise((resolve) => {
-            exec('git status --porcelain', { cwd: this.workspaceRoot }, (error: Error | null, stdout: string) => {
+            exec('git status --porcelain', { cwd: this.workspaceRoot ?? undefined }, (error: Error | null, stdout: string) => {
                 if (error) {
                     resolve({ content: [{ type: 'text', text: 'Not a git repository' }], isError: true });
                     return;
@@ -482,7 +481,6 @@ export class MCPServer {
     }
 
     private async handleGitDiff(args: Record<string, unknown>): Promise<MCPToolResult> {
-        const { exec } = require('child_process');
         const staged = args.staged as boolean;
         const filePath = args.path as string | undefined;
 
@@ -491,7 +489,7 @@ export class MCPServer {
         if (filePath) command += ` -- "${filePath}"`;
 
         return new Promise((resolve) => {
-            exec(command, { cwd: this.workspaceRoot, maxBuffer: 1024 * 1024 }, (error: Error | null, stdout: string) => {
+            exec(command, { cwd: this.workspaceRoot ?? undefined, maxBuffer: 1024 * 1024 }, (error: Error | null, stdout: string) => {
                 if (error) {
                     resolve({ content: [{ type: 'text', text: `Git error: ${error.message}` }], isError: true });
                     return;

@@ -210,7 +210,7 @@ Requires Node.js 22.12 or newer (the test runner and `vsce` need it).
 
 ```bash
 npm ci
-npm run lint            # ESLint (typescript-eslint recommended)
+npm run lint            # ESLint (typescript-eslint recommended); warnings fail
 npm run typecheck       # tsc --noEmit, strict mode
 npm test                # vitest
 npm run test:coverage   # vitest with a v8 coverage report
@@ -226,8 +226,8 @@ Tests live in `tests/`:
   `DEFAULT_CONFIG` in step.
 - `tests/mocks/vscode.ts` is a stateful mock of the `vscode` API. Like VS Code, it rejects updates to settings
   that `package.json` does not declare.
-- `tests/*.test.ts` are older specification-style tests that model the intended behaviour inline rather than
-  importing `src/`.
+- `tests/helpers/` holds the harness for the injected script and a stub "installed extension" used to observe what
+  `src/extension.ts` asks the CDP handler and relauncher to do.
 
 CI (`.github/workflows/ci.yml`) runs lint, type check, tests with coverage, build, packaging, a smoke test that
 loads the CDP handler from the built VSIX and a production-dependency audit on Node 22 and 24, plus a gitleaks
@@ -245,10 +245,9 @@ pushed, then creates the GitHub Release and publishes.
 │   ├── ui/                   # dashboard, status bar, styles, voice scaffold
 │   └── utils/                # config, constants, logger
 ├── main_scripts/             # runtime CDP handler, relauncher, deny-list matcher, injected auto-accept script
-├── tests/                    # vitest suites + vscode mock
+├── tests/                    # vitest suites, test helpers and the vscode mock
 ├── media/                    # icon and screenshots
 ├── docs/                     # banner, MARKETPLACE.md (the README packaged into the VSIX)
-├── out/, extension.js        # legacy build output from earlier versions (not used, not packaged)
 └── .github/                  # ci.yml, release.yml, dependabot.yml
 ```
 

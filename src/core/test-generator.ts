@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { exec } from 'child_process';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('TestGenerator');
@@ -245,7 +246,7 @@ export class TestGenerator {
             type: 'unit',
             sourceFile,
             testFile: this.getTestFilePath(sourceFile),
-            code: this.generateBasicTest(func, template),
+            code: this.generateBasicTest(func),
             status: 'generated'
         });
 
@@ -286,7 +287,6 @@ export class TestGenerator {
         sourceFile: string
     ): TestCase[] {
         const tests: TestCase[] = [];
-        const template = TEST_TEMPLATES[this.config.framework];
 
         // Instantiation test
         tests.push({
@@ -318,8 +318,7 @@ export class TestGenerator {
     }
 
     private generateBasicTest(
-        func: { name: string; params: string[]; async: boolean },
-        template: typeof TEST_TEMPLATES.vitest
+        func: { name: string; params: string[]; async: boolean }
     ): string {
         const params = func.params.map(() => 'undefined').join(', ');
         const call = func.async
@@ -393,14 +392,12 @@ export class TestGenerator {
 
     // ============ Test Execution ============
     async runTests(suiteId?: string): Promise<TestResult[]> {
-        const { exec } = require('child_process');
-
         return new Promise((resolve) => {
             const command = this.getTestCommand(suiteId);
 
             log.info(`Running tests: ${command}`);
 
-            exec(command, { cwd: this.workspaceRoot }, (error: Error | null, stdout: string, stderr: string) => {
+            exec(command, { cwd: this.workspaceRoot ?? undefined }, (error: Error | null, stdout: string, stderr: string) => {
                 const results: TestResult[] = [];
 
                 if (error) {

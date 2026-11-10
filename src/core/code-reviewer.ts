@@ -267,7 +267,7 @@ export class CodeReviewer {
         const issues: ReviewIssue[] = [];
         const lines = code.split('\n');
 
-        log.debug(`Reviewing code: ${lines.length} lines`);
+        log.debug(`Reviewing ${filename ?? 'code'}: ${lines.length} lines`);
 
         // Check each pattern against each line
         for (let i = 0; i < lines.length; i++) {

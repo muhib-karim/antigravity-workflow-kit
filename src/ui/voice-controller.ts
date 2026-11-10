@@ -288,10 +288,6 @@ export class VoiceController {
     }
 
     private async showHelp(): Promise<void> {
-        const helpText = this.commands
-            .map(c => `• "${c.patterns[0].source.replace(/[\\^$.*+?()[\]{}|]/g, '')}" - ${c.description}`)
-            .join('\n');
-
         const panel = vscode.window.createWebviewPanel(
             'workflowKitVoiceHelp',
             'Workflow Kit Voice Commands',

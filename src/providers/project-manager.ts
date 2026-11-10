@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { exec } from 'child_process';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('ProjectManager');
@@ -382,22 +383,18 @@ export class ProjectManager {
 
     // ============ Git Operations ============
     async getCurrentBranch(): Promise<string> {
-        const { exec } = require('child_process');
-
         return new Promise((resolve) => {
-            exec('git branch --show-current', { cwd: this.workspaceRoot }, (error: Error | null, stdout: string) => {
+            exec('git branch --show-current', { cwd: this.workspaceRoot ?? undefined }, (error: Error | null, stdout: string) => {
                 resolve(error ? 'main' : stdout.trim());
             });
         });
     }
 
     async createBranchFromTask(task: ProjectTask): Promise<string> {
-        const { exec } = require('child_process');
-
         const branchName = this.generateBranchName(task);
 
         return new Promise((resolve, reject) => {
-            exec(`git checkout -b ${branchName}`, { cwd: this.workspaceRoot }, (error: Error | null) => {
+            exec(`git checkout -b ${branchName}`, { cwd: this.workspaceRoot ?? undefined }, (error: Error | null) => {
                 if (error) {
                     reject(error);
                 } else {
@@ -409,10 +406,8 @@ export class ProjectManager {
     }
 
     async commitProgress(message: string): Promise<void> {
-        const { exec } = require('child_process');
-
-        return new Promise((resolve, reject) => {
-            exec(`git add -A && git commit -m "${message}"`, { cwd: this.workspaceRoot }, (error: Error | null) => {
+        return new Promise((resolve) => {
+            exec(`git add -A && git commit -m "${message}"`, { cwd: this.workspaceRoot ?? undefined }, (error: Error | null) => {
                 if (error) {
                     log.warn('Commit failed (may have no changes)');
                     resolve();

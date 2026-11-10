@@ -4,7 +4,6 @@
  * @module core/notification-manager
  */
 
-import * as vscode from 'vscode';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('NotificationManager');
