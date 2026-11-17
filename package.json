@@ -256,7 +256,7 @@
         "package": "npx @vscode/vsce package --allow-missing-repository --readme-path docs/MARKETPLACE.md"
     },
     "dependencies": {
-        "ws": "^8.22.1"
+        "ws": "^8.23.0"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
